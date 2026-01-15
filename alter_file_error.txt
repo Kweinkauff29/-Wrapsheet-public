@@ -1,0 +1,24 @@
+
+ ⛅️ wrangler 4.55.0 (update available 4.59.1)
+─────────────────────────────────────────────
+Resource location: remote 
+
+[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mProcessing wrangler.toml configuration:[0m
+
+    - Unexpected fields found in assets field: "routes"
+
+
+[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1m⚠️ This process may take some time, during which your D1 database will be unavailable to serve queries.[0m
+
+
+🌀 Executing on remote database WRAP_DB (fbba489f-fc17-4472-b70f-578ce5fd9933):
+🌀 To execute on your local development database, remove the --remote flag from your wrangler command.
+Note: if the execution fails to complete, your DB will return to its original state and you can safely retry.
+├ Checking if file needs uploading
+│
+🌀 File already uploaded. Processing.
+
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1mCannot add a column with non-constant default: SQLITE_ERROR[0m
+
+
+🪵  Logs were written to "C:\Users\Kevin\.wrangler\logs\wrangler-2026-01-15_04-46-41_214.log"

@@ -2587,6 +2587,19 @@ export default {
                 }
             }
 
+            // ===== USERS (EDIT/DELETE) =====
+            if (pathname.startsWith("/api/users/") && pathname.split("/").length === 4) {
+                const id = pathname.split("/").pop();
+
+                if (request.method === "PUT") {
+                    return await updateUser(request, env, id);
+                }
+
+                if (request.method === "DELETE") {
+                    return await deleteUser(request, env, id);
+                }
+            }
+
             // ===== OFFICE MLS CONTACTS =====
             if (pathname === "/api/offices" && request.method === "GET") {
                 return await listOfficeMlsContacts(env, searchParams);
@@ -2889,8 +2902,8 @@ async function createUser(request, env) {
         const now = new Date().toISOString();
         // Insert
         const res = await env.WRAP_DB.prepare(`
-          INSERT INTO users (name, email, role, avatar_url, org_id, created_at)
-          VALUES (?, ?, ?, ?, ?, ?)
+          INSERT INTO users (name, email, role, avatar_url, org_id, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?)
           RETURNING id, name, email, role
         `).bind(
             body.name,
@@ -2899,6 +2912,7 @@ async function createUser(request, env) {
             // Default avatar based on initials or generic
             `https://ui-avatars.com/api/?name=${encodeURIComponent(body.name)}&background=random`,
             body.org_id,
+            now,
             now
         ).first();
 
@@ -2906,6 +2920,48 @@ async function createUser(request, env) {
     } catch (e) {
         console.error("Create user error", e);
         return json({ error: "Failed to create user" }, 500);
+    }
+}
+
+async function updateUser(request, env, id) {
+    try {
+        const body = await getBody(request);
+        const { name, email, role } = body;
+
+        if (!name || !email) {
+            return json({ error: "Name and email required" }, 400);
+        }
+
+        const now = new Date().toISOString();
+
+        // Update user
+        // We also regenerate avatar_url if name changes, but for simplicity we'll just keep existing or update if provided. 
+        // Let's just update the main fields.
+        await env.WRAP_DB.prepare(`
+            UPDATE users 
+            SET name = ?, email = ?, role = ?, updated_at = ?
+            WHERE id = ?
+        `).bind(name, email, role, now, id).run();
+
+        return json({ success: true, message: "User updated" });
+    } catch (e) {
+        console.error("Update user error", e);
+        return json({ error: "Failed to update user" }, 500);
+    }
+}
+
+async function deleteUser(request, env, id) {
+    try {
+        // Cascade delete votes first (referential integrity)
+        await env.WRAP_DB.prepare("DELETE FROM task_votes WHERE user_id = ?").bind(id).run();
+
+        // Delete user
+        await env.WRAP_DB.prepare("DELETE FROM users WHERE id = ?").bind(id).run();
+
+        return json({ success: true, message: "User deleted" });
+    } catch (e) {
+        console.error("Delete user error", e);
+        return json({ error: "Failed to delete user" }, 500);
     }
 }
 

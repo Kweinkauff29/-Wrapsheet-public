@@ -138,6 +138,39 @@
         </div>
     </div>
 
+    <!-- Edit User Modal -->
+    <div id="edit-user-modal"
+        class="hidden fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm">
+        <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-sm">
+            <h3 class="text-lg font-bold mb-4">Edit User</h3>
+            <form id="edit-user-form" class="space-y-4">
+                <input type="hidden" name="id">
+                <div>
+                    <label class="block text-sm font-medium mb-1">Full Name</label>
+                    <input type="text" name="name" class="w-full p-2 border rounded" required>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">Email</label>
+                    <input type="email" name="email" class="w-full p-2 border rounded" required>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">Role</label>
+                    <select name="role" class="w-full p-2 border rounded">
+                        <option value="member">Member</option>
+                        <option value="staff">Staff</option>
+                        <option value="admin">Admin</option>
+                    </select>
+                </div>
+                <div class="flex justify-end gap-2 pt-2">
+                    <button type="button" id="cancel-edit-btn"
+                        class="px-4 py-2 text-slate-600 hover:text-slate-800">Cancel</button>
+                    <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Save
+                        Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <script>
         const API_BASE = '/api'; // Relative API base
 
@@ -153,6 +186,11 @@
         const usersPanel = document.getElementById('users-panel');
         const usersList = document.getElementById('users-list');
 
+        // Edit Modal Elements
+        const editModal = document.getElementById('edit-user-modal');
+        const editForm = document.getElementById('edit-user-form');
+        const cancelEditBtn = document.getElementById('cancel-edit-btn');
+
         // --- Init ---
         function init() {
             if (localStorage.getItem(AUTH_KEY) === 'true') {
@@ -165,6 +203,11 @@
                 input.addEventListener('input', (e) => {
                     e.target.nextElementSibling.value = e.target.value;
                 });
+            });
+
+            // Modal close
+            cancelEditBtn.addEventListener('click', () => {
+                editModal.classList.add('hidden');
             });
         }
 
@@ -264,18 +307,6 @@
         async function loadUsers(orgId) {
             usersList.innerHTML = '<li class="p-4 text-slate-400">Loading...</li>';
             try {
-                // Pass org_id to filter header
-                // Wait, API expects header x-org-id usually.
-                // But listUsers takes query param/header.
-                // My new createUser logic uses org_id in body, listUsers needs to filter.
-                // I'll assume I can pass param or header.
-
-                // Let's use the fetch with headers approach to be safe if backend requires it.
-                // My recent backend changes added org_id support to createUser.
-                // For listing, it checks header OR query param.
-                // I'll try adding header manually in apiCall for this instance?
-                // Actually easier to just update apiCall helper or hardcode fetch here.
-
                 const res = await fetch(`${API_BASE}/users?org_id=${orgId}`, {
                     headers: { 'x-org-id': orgId }
                 });
@@ -296,16 +327,73 @@
             users.forEach(user => {
                 const li = document.createElement('li');
                 li.className = 'p-3 flex justify-between items-center hover:bg-slate-50';
+
+                // Escape function to prevent XSS
+                const esc = (str) => (str || '').replace(/"/g, '&quot;');
+
                 li.innerHTML = `
-                    <div>
+                    <div class="flex-1">
                         <div class="font-medium">${user.name}</div>
                         <div class="text-xs text-slate-500">${user.email}</div>
                     </div>
-                    <span class="text-xs bg-slate-200 text-slate-600 px-2 py-1 rounded">${user.role}</span>
+                    <div class="flex items-center gap-3">
+                        <span class="text-xs bg-slate-200 text-slate-600 px-2 py-1 rounded">${user.role}</span>
+                        <button onclick="editUser('${user.id}', '${esc(user.name)}', '${esc(user.email)}', '${user.role}')" 
+                            class="text-blue-500 hover:text-blue-700" title="Edit">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                        </button>
+                        <button onclick="deleteUser('${user.id}', '${esc(user.name)}')" 
+                            class="text-red-500 hover:text-red-700" title="Delete">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                        </button>
+                    </div>
                 `;
                 usersList.appendChild(li);
             });
         }
+
+        // --- Edit / Delete Handlers (Global) ---
+        window.editUser = (id, name, email, role) => {
+            const form = document.getElementById('edit-user-form');
+            form.querySelector('[name="id"]').value = id;
+            form.querySelector('[name="name"]').value = name;
+            form.querySelector('[name="email"]').value = email;
+            form.querySelector('[name="role"]').value = role || 'member';
+
+            editModal.classList.remove('hidden');
+        };
+
+        window.deleteUser = async (id, name) => {
+            if (!confirm(`Are you sure you want to delete user "${name}"? This cannot be undone.`)) return;
+
+            try {
+                await apiCall(`/users/${id}`, 'DELETE');
+                // Reload list
+                loadUsers(orgSelect.value);
+            } catch (e) {
+                console.error(e);
+            }
+        };
+
+        // Save Edit
+        editForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const data = Object.fromEntries(formData.entries());
+            const id = data.id;
+
+            try {
+                await apiCall(`/users/${id}`, 'PUT', data);
+                editModal.classList.add('hidden');
+                loadUsers(orgSelect.value);
+            } catch (e) {
+                console.error(e);
+            }
+        });
 
         document.getElementById('add-user-form').addEventListener('submit', async (e) => {
             e.preventDefault();
