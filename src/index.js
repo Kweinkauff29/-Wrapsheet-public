@@ -183,6 +183,14 @@ async function updateOrganization(request, env, id) {
 /* ---------- USERS ---------- */
 
 async function listUsers(env, params, orgId) {
+    // SPECIAL RULE: For Bonita-Estero (ID 1), ONLY show 'staff'
+    if (orgId == 1) {
+        const { results } = await env.WRAP_DB.prepare("SELECT id, name, email, role, is_active, org_id FROM users WHERE is_active = 1 AND org_id = ? AND role = 'staff' ORDER BY name")
+            .bind(orgId)
+            .all();
+        return json(results);
+    }
+
     const query = `SELECT id, name, email, role, is_active, org_id FROM users WHERE is_active = 1${orgId ? ' AND org_id = ?' : ''}${params && params.get("role") ? ' AND role = ?' : ''} ORDER BY name`;
 
     // Simplified query construction for reliability
