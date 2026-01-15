@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WrapSheet Admin</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+        }
+    </style>
+</head>
+
+<body class="bg-slate-100 min-h-screen font-sans text-slate-800">
+
+    <!-- Login Overlay -->
+    <div id="login-overlay"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm">
+        <div class="glass-panel p-8 rounded-xl shadow-2xl w-full max-w-md bg-white">
+            <h2 class="text-2xl font-bold mb-6 text-center text-slate-800">Admin Login</h2>
+            <form id="login-form" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium mb-1">Username</label>
+                    <input type="text" id="username" class="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500"
+                        required>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">Password</label>
+                    <input type="password" id="password"
+                        class="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500" required>
+                </div>
+                <div class="flex items-center">
+                    <input type="checkbox" id="remember-me" class="mr-2 rounded">
+                    <label for="remember-me" class="text-sm">Remember my device locally</label>
+                </div>
+                <button type="submit"
+                    class="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 transition">Login</button>
+                <div id="login-error" class="text-red-500 text-sm hidden">Invalid credentials</div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Main Admin Dashboard -->
+    <div id="admin-dashboard" class="hidden container mx-auto p-6 max-w-5xl">
+        <div class="flex justify-between items-center mb-8">
+            <h1 class="text-3xl font-bold text-slate-800">WrapSheet Admin</h1>
+            <button id="logout-btn" class="text-sm text-red-600 hover:text-red-800">Logout</button>
+        </div>
+
+        <div class="grid gap-8">
+
+            <!-- Create Organization Section -->
+            <section class="bg-white p-6 rounded-lg shadow-sm border border-slate-200">
+                <h2 class="text-xl font-semibold mb-4 border-b pb-2">Create Organization</h2>
+                <form id="create-org-form" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Organization Name</label>
+                        <input type="text" name="name" placeholder="e.g. Acme Corp" class="w-full p-2 border rounded"
+                            required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Slug (Code)</label>
+                        <input type="text" name="slug" placeholder="e.g. acme (lowercase)"
+                            class="w-full p-2 border rounded" required pattern="[a-z0-9-]+">
+                        <p class="text-xs text-slate-500 mt-1">This is the code users will enter.</p>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Primary Color</label>
+                        <div class="flex gap-2">
+                            <input type="color" name="primary_color" value="#03aae1"
+                                class="h-10 w-10 cursor-pointer border rounded">
+                            <input type="text" name="primary_color_text" value="#03aae1"
+                                class="w-full p-2 border rounded" readonly>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Secondary Color</label>
+                        <div class="flex gap-2">
+                            <input type="color" name="secondary_color" value="#fbbf24"
+                                class="h-10 w-10 cursor-pointer border rounded">
+                            <input type="text" name="secondary_color_text" value="#fbbf24"
+                                class="w-full p-2 border rounded" readonly>
+                        </div>
+                    </div>
+                    <div class="md:col-span-2">
+                        <button type="submit"
+                            class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">Create
+                            Organization</button>
+                    </div>
+                </form>
+            </section>
+
+            <!-- Manage Users Section -->
+            <section class="bg-white p-6 rounded-lg shadow-sm border border-slate-200">
+                <h2 class="text-xl font-semibold mb-4 border-b pb-2">Manage Users</h2>
+
+                <div class="mb-6">
+                    <label class="block text-sm font-medium mb-1">Select Organization</label>
+                    <select id="org-select" class="w-full p-2 border rounded max-w-md">
+                        <option value="">-- Select an Organization --</option>
+                    </select>
+                </div>
+
+                <div id="users-panel" class="hidden">
+                    <div class="mb-6 bg-slate-50 p-4 rounded border">
+                        <h3 class="font-medium mb-2">Add User to Organization</h3>
+                        <form id="add-user-form" class="flex gap-4 items-end">
+                            <div class="flex-1">
+                                <label class="block text-xs font-medium mb-1">Full Name</label>
+                                <input type="text" name="name" placeholder="John Doe" class="w-full p-2 border rounded"
+                                    required>
+                            </div>
+                            <div class="flex-1">
+                                <label class="block text-xs font-medium mb-1">Email</label>
+                                <input type="email" name="email" placeholder="john@example.com"
+                                    class="w-full p-2 border rounded" required>
+                            </div>
+                            <!-- Hidden Role input, defaulting to 'staff' -->
+                            <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Add
+                                User</button>
+                        </form>
+                    </div>
+
+                    <div>
+                        <h3 class="font-medium mb-2">Existing Users</h3>
+                        <ul id="users-list" class="divide-y border rounded bg-white max-h-96 overflow-y-auto">
+                            <!-- Users will load here -->
+                            <li class="p-4 text-slate-500 text-center">Select an organization to view users.</li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '/api'; // Relative API base
+
+        // --- Auth State ---
+        const AUTH_KEY = 'wrapsheet_admin_auth';
+        const CREDS = { user: 'Kevin', pass: 'Everblade@1' };
+
+        // --- DOM Elements ---
+        const loginOverlay = document.getElementById('login-overlay');
+        const loginForm = document.getElementById('login-form');
+        const dashboard = document.getElementById('admin-dashboard');
+        const orgSelect = document.getElementById('org-select');
+        const usersPanel = document.getElementById('users-panel');
+        const usersList = document.getElementById('users-list');
+
+        // --- Init ---
+        function init() {
+            if (localStorage.getItem(AUTH_KEY) === 'true') {
+                showDashboard();
+            } else {
+                loginOverlay.classList.remove('hidden');
+            }
+            // Sync color inputs
+            document.querySelectorAll('input[type="color"]').forEach(input => {
+                input.addEventListener('input', (e) => {
+                    e.target.nextElementSibling.value = e.target.value;
+                });
+            });
+        }
+
+        function showDashboard() {
+            loginOverlay.classList.add('hidden');
+            dashboard.classList.remove('hidden');
+            loadOrganizations();
+        }
+
+        function logout() {
+            localStorage.removeItem(AUTH_KEY);
+            location.reload();
+        }
+
+        document.getElementById('logout-btn').addEventListener('click', logout);
+
+        // --- Login ---
+        loginForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const user = document.getElementById('username').value;
+            const pass = document.getElementById('password').value;
+            const remember = document.getElementById('remember-me').checked;
+
+            if (user === CREDS.user && pass === CREDS.pass) {
+                if (remember) {
+                    localStorage.setItem(AUTH_KEY, 'true');
+                }
+                showDashboard(); // Session auth
+            } else {
+                document.getElementById('login-error').classList.remove('hidden');
+            }
+        });
+
+        // --- API Helpers ---
+        async function apiCall(endpoint, method = 'GET', body = null) {
+            const opts = { method, headers: { 'Content-Type': 'application/json' } };
+            if (body) opts.body = JSON.stringify(body);
+            try {
+                const res = await fetch(`${API_BASE}${endpoint}`, opts);
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({}));
+                    throw new Error(err.error || `API Error ${res.status}`);
+                }
+                return await res.json();
+            } catch (err) {
+                alert(err.message);
+                throw err;
+            }
+        }
+
+        // --- Organizations ---
+        async function loadOrganizations() {
+            try {
+                const orgs = await apiCall('/organizations');
+                orgSelect.innerHTML = '<option value="">-- Select an Organization --</option>';
+                orgs.forEach(org => {
+                    const opt = document.createElement('option');
+                    opt.value = org.id; // Use ID for user linking
+                    opt.textContent = `${org.name} (${org.slug})`;
+                    opt.dataset.slug = org.slug;
+                    orgSelect.appendChild(opt);
+                });
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        document.getElementById('create-org-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const data = Object.fromEntries(formData.entries());
+            // Remove text color inputs
+            delete data.primary_color_text;
+            delete data.secondary_color_text;
+
+            try {
+                await apiCall('/organizations', 'POST', data);
+                alert('Organization created!');
+                e.target.reset();
+                loadOrganizations();
+            } catch (e) {
+                console.error(e);
+            }
+        });
+
+        // --- Users ---
+        orgSelect.addEventListener('change', () => {
+            const orgId = orgSelect.value;
+            if (orgId) {
+                usersPanel.classList.remove('hidden');
+                loadUsers(orgId);
+            } else {
+                usersPanel.classList.add('hidden');
+            }
+        });
+
+        async function loadUsers(orgId) {
+            usersList.innerHTML = '<li class="p-4 text-slate-400">Loading...</li>';
+            try {
+                // Pass org_id to filter header
+                // Wait, API expects header x-org-id usually.
+                // But listUsers takes query param/header.
+                // My new createUser logic uses org_id in body, listUsers needs to filter.
+                // I'll assume I can pass param or header.
+
+                // Let's use the fetch with headers approach to be safe if backend requires it.
+                // My recent backend changes added org_id support to createUser.
+                // For listing, it checks header OR query param.
+                // I'll try adding header manually in apiCall for this instance?
+                // Actually easier to just update apiCall helper or hardcode fetch here.
+
+                const res = await fetch(`${API_BASE}/users?org_id=${orgId}`, {
+                    headers: { 'x-org-id': orgId }
+                });
+                const users = await res.json();
+
+                renderUsers(users);
+            } catch (e) {
+                usersList.innerHTML = '<li class="p-4 text-red-500">Failed to load users</li>';
+            }
+        }
+
+        function renderUsers(users) {
+            usersList.innerHTML = '';
+            if (users.length === 0) {
+                usersList.innerHTML = '<li class="p-4 text-slate-500">No users found. Add one above.</li>';
+                return;
+            }
+            users.forEach(user => {
+                const li = document.createElement('li');
+                li.className = 'p-3 flex justify-between items-center hover:bg-slate-50';
+                li.innerHTML = `
+                    <div>
+                        <div class="font-medium">${user.name}</div>
+                        <div class="text-xs text-slate-500">${user.email}</div>
+                    </div>
+                    <span class="text-xs bg-slate-200 text-slate-600 px-2 py-1 rounded">${user.role}</span>
+                `;
+                usersList.appendChild(li);
+            });
+        }
+
+        document.getElementById('add-user-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const data = Object.fromEntries(formData.entries());
+            data.org_id = Number(orgSelect.value); // Ensure it's a number
+
+            try {
+                await apiCall('/users', 'POST', data);
+                // Clear inputs
+                e.target.reset();
+                loadUsers(data.org_id);
+            } catch (e) {
+                console.error(e);
+            }
+        });
+
+        init();
+    </script>
+</body>
+
+</html>

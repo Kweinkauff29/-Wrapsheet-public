@@ -183,23 +183,57 @@ async function updateOrganization(request, env, id) {
 /* ---------- USERS ---------- */
 
 async function listUsers(env, params, orgId) {
-    let query = `SELECT id, name, email, role, is_active, org_id FROM users WHERE is_active = 1`;
-    const args = [];
+    const query = `SELECT id, name, email, role, is_active, org_id FROM users WHERE is_active = 1${orgId ? ' AND org_id = ?' : ''}${params && params.get("role") ? ' AND role = ?' : ''} ORDER BY name`;
 
-    if (orgId) {
-        query += ` AND org_id = ?`;
-        args.push(orgId);
+    // Simplified query construction for reliability
+    if (orgId && params && params.get("role")) {
+        const { results } = await env.WRAP_DB.prepare("SELECT id, name, email, role, is_active, org_id FROM users WHERE is_active = 1 AND org_id = ? AND role = ? ORDER BY name").bind(orgId, params.get("role")).all();
+        return json(results);
+    } else if (orgId) {
+        const { results } = await env.WRAP_DB.prepare("SELECT id, name, email, role, is_active, org_id FROM users WHERE is_active = 1 AND org_id = ? ORDER BY name").bind(orgId).all();
+        return json(results);
+    } else {
+        const { results } = await env.WRAP_DB.prepare("SELECT id, name, email, role, is_active, org_id FROM users WHERE is_active = 1 ORDER BY name").all();
+        return json(results);
+    }
+}
+
+async function createUser(request, env) {
+    const body = await getBody(request);
+    const { name, email, role = 'staff', org_id } = body;
+
+    if (!name || !email) {
+        return json({ error: "name and email are required" }, 400);
     }
 
-    if (params && params.get("role")) {
-        query += ` AND role = ?`;
-        args.push(params.get("role"));
+    if (!org_id) {
+        return json({ error: "org_id is required" }, 400);
     }
 
-    query += ` ORDER BY name`;
+    const now = new Date().toISOString();
 
-    const { results } = await env.WRAP_DB.prepare(query).bind(...args).all();
-    return json(results);
+    try {
+        const info = await env.WRAP_DB
+            .prepare(`
+                INSERT INTO users (name, email, role, is_active, org_id, created_at, updated_at)
+                VALUES (?, ?, ?, 1, ?, ?, ?)
+            `)
+            .bind(name, email, role, org_id, now, now)
+            .run();
+
+        const insertedId = info.meta?.last_row_id;
+        const user = await env.WRAP_DB
+            .prepare(`SELECT * FROM users WHERE id = ?`)
+            .bind(insertedId)
+            .first();
+
+        return json(user, 201);
+    } catch (err) {
+        if (err.message?.includes("UNIQUE constraint")) {
+            return json({ error: "Email already exists" }, 409);
+        }
+        throw err;
+    }
 }
 
 /* ---------- DAILY TASK ASSIGNEES (MULTI-ASSIGN) ---------- */
@@ -2876,8 +2910,8 @@ async function createUser(request, env) {
     try {
         const body = await getBody(request);
         // Expect: { name, email }
-        if (!body.name || !body.email) {
-            return json({ error: "Name and email required" }, 400);
+        if (!body.name || !body.email || !body.org_id) {
+            return json({ error: "Name, email, and org_id required" }, 400);
         }
 
         const role = body.role || 'member';
@@ -2891,8 +2925,8 @@ async function createUser(request, env) {
         const now = new Date().toISOString();
         // Insert
         const res = await env.WRAP_DB.prepare(`
-          INSERT INTO users (name, email, role, avatar_url, created_at)
-          VALUES (?, ?, ?, ?, ?)
+          INSERT INTO users (name, email, role, avatar_url, org_id, created_at)
+          VALUES (?, ?, ?, ?, ?, ?)
           RETURNING id, name, email, role
         `).bind(
             body.name,
@@ -2900,6 +2934,7 @@ async function createUser(request, env) {
             role,
             // Default avatar based on initials or generic
             `https://ui-avatars.com/api/?name=${encodeURIComponent(body.name)}&background=random`,
+            body.org_id,
             now
         ).first();
 
