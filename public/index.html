@@ -2145,12 +2145,209 @@
       margin: 0;
       font-weight: normal;
     }
+
+    /* ===== ORGANIZATION LOGIN SCREEN ===== */
+    .org-login-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: radial-gradient(circle at top left, #111827 0, #020617 45%, #000 100%);
+    }
+
+    .org-login-overlay.hidden {
+      display: none;
+    }
+
+    .org-login-card {
+      background: rgba(15, 23, 42, 0.8);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      border-radius: 24px;
+      padding: 48px;
+      max-width: 440px;
+      width: 90%;
+      box-shadow: 0 25px 60px rgba(0, 0, 0, 0.5);
+      text-align: center;
+    }
+
+    .org-login-logo {
+      width: 64px;
+      height: 64px;
+      border-radius: 16px;
+      background: linear-gradient(135deg, #03aae1 0%, #fbbf24 100%);
+      margin: 0 auto 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      font-weight: 800;
+      color: #fff;
+      letter-spacing: 0.1em;
+    }
+
+    .org-login-title {
+      font-size: 24px;
+      font-weight: 700;
+      color: #f9fafb;
+      margin: 0 0 8px;
+    }
+
+    .org-login-subtitle {
+      font-size: 14px;
+      color: #9ca3af;
+      margin: 0 0 32px;
+    }
+
+    .org-input-group {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .org-input {
+      width: 100%;
+      padding: 16px 20px;
+      font-size: 16px;
+      border-radius: 12px;
+      border: 2px solid rgba(148, 163, 184, 0.3);
+      background: rgba(15, 23, 42, 0.6);
+      color: #f9fafb;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      box-sizing: border-box;
+    }
+
+    .org-input::placeholder {
+      color: #6b7280;
+    }
+
+    .org-input:focus {
+      border-color: #03aae1;
+      box-shadow: 0 0 0 3px rgba(3, 170, 225, 0.2);
+    }
+
+    .org-input.error {
+      border-color: #ef4444;
+      box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2);
+    }
+
+    .org-error {
+      color: #f87171;
+      font-size: 13px;
+      margin-top: -8px;
+      text-align: left;
+      min-height: 20px;
+    }
+
+    .org-submit-btn {
+      width: 100%;
+      padding: 16px;
+      font-size: 16px;
+      font-weight: 600;
+      border: none;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #03aae1 0%, #0284c7 100%);
+      color: #fff;
+      cursor: pointer;
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+
+    .org-submit-btn:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(3, 170, 225, 0.4);
+    }
+
+    .org-submit-btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .org-preview {
+      margin-top: 24px;
+      padding: 16px;
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      border-radius: 12px;
+      display: none;
+    }
+
+    .org-preview.visible {
+      display: block;
+    }
+
+    .org-preview-name {
+      font-size: 18px;
+      font-weight: 600;
+      color: #10b981;
+      margin: 0;
+    }
+
+    .org-preview-slug {
+      font-size: 12px;
+      color: #6ee7b7;
+      margin: 4px 0 0;
+    }
+
+    .switch-org-btn {
+      border: 1px solid rgba(148, 163, 184, 0.4);
+      background: transparent;
+      color: var(--ink-soft);
+      border-radius: 6px;
+      padding: 4px 8px;
+      font-size: 11px;
+      cursor: pointer;
+      margin-left: 8px;
+    }
+
+    .switch-org-btn:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .org-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      background: rgba(3, 170, 225, 0.1);
+      border: 1px solid rgba(3, 170, 225, 0.3);
+      border-radius: 999px;
+      font-size: 11px;
+      color: #38bdf8;
+      margin-right: 12px;
+    }
   </style>
 </head>
 
 <body>
+  <!-- Organization Login Screen -->
+  <div id="org-login-overlay" class="org-login-overlay">
+    <div class="org-login-card">
+      <div class="org-login-logo">WS</div>
+      <h1 class="org-login-title">WrapSheet</h1>
+      <p class="org-login-subtitle">Enter your organization's code to continue</p>
+
+      <div class="org-input-group">
+        <input type="text" id="org-slug-input" class="org-input" placeholder="e.g., your-company" autocomplete="off"
+          spellcheck="false">
+        <div id="org-error" class="org-error"></div>
+      </div>
+
+      <button id="org-submit-btn" class="org-submit-btn">Continue</button>
+
+      <div id="org-preview" class="org-preview">
+        <p class="org-preview-name" id="org-preview-name"></p>
+        <p class="org-preview-slug" id="org-preview-slug"></p>
+      </div>
+    </div>
+  </div>
+
   <!-- User chooser -->
-  <div id="user-overlay" class="overlay">
+  <div id="user-overlay" class="overlay hidden">
     <div class="overlay-panel">
       <h2>Who’s on the Wrap?</h2>
       <p>Select your name so we know who’s assigning and completing tasks.</p>
@@ -2158,7 +2355,7 @@
         <option value="">Loading team...</option>
       </select>
       <button id="user-select-confirm">Open Wrap Sheet</button>
-      <small>This is internal for BER: Meighan, Kevin, Erica, Jenna &amp; Katie.</small>
+      <small id="org-team-label">Team members for your organization</small>
     </div>
   </div>
 
@@ -2305,7 +2502,7 @@
         <div class="branding-mark">W</div>
         <div class="branding-text">
           <h1>Wrap Sheet</h1>
-          <span>BER • DAILY TASKS • GOALS</span>
+          <span id="header-org-name">YOUR ORG • DAILY TASKS • GOALS</span>
         </div>
       </div>
 
@@ -2321,6 +2518,7 @@
         <div class="user-pill">
           <span id="current-user-label">Not signed in</span>
           <button id="switch-user-btn">Switch</button>
+          <button id="switch-org-btn" class="switch-org-btn" onclick="switchOrganization()">Change Org</button>
         </div>
       </div>
     </header>
@@ -2627,7 +2825,68 @@
 
   <script>
     // ===== CONFIG =====
-    const API_BASE = "https://wrapsheet.bonitaspringsrealtors.workers.dev/api";
+    const API_BASE = "/api";  // Uses same-origin requests for multi-tenant deployment
+
+    // ===== ORGANIZATION CONTEXT MANAGEMENT =====
+    function getOrgSlug() {
+      return sessionStorage.getItem("wrapsheet-org-slug");
+    }
+
+    function getOrgData() {
+      const data = sessionStorage.getItem("wrapsheet-org-data");
+      return data ? JSON.parse(data) : null;
+    }
+
+    function setOrganization(org) {
+      sessionStorage.setItem("wrapsheet-org-slug", org.slug);
+      sessionStorage.setItem("wrapsheet-org-data", JSON.stringify(org));
+      state.organization = org;
+    }
+
+    function clearOrganization() {
+      sessionStorage.removeItem("wrapsheet-org-slug");
+      sessionStorage.removeItem("wrapsheet-org-data");
+      state.organization = null;
+    }
+
+    function getApiHeaders() {
+      const headers = { "Content-Type": "application/json" };
+      const orgSlug = getOrgSlug();
+      if (orgSlug) headers["x-org-slug"] = orgSlug;
+      return headers;
+    }
+
+    async function lookupOrganization(slug) {
+      const res = await fetch(`${API_BASE}/organizations/${encodeURIComponent(slug)}`);
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({ error: "Organization not found" }));
+        throw new Error(error.error || "Organization not found");
+      }
+      return await res.json();
+    }
+
+    // API helper that uses org headers
+    async function apiGet(endpoint) {
+      const res = await fetch(`${API_BASE}${endpoint}`, {
+        headers: getApiHeaders()
+      });
+      if (!res.ok) throw new Error(`API error: ${res.status}`);
+      return await res.json();
+    }
+
+    async function apiSend(endpoint, method, body = null) {
+      const options = {
+        method,
+        headers: getApiHeaders()
+      };
+      if (body) options.body = JSON.stringify(body);
+      const res = await fetch(`${API_BASE}${endpoint}`, options);
+      if (!res.ok && res.status !== 204) {
+        throw new Error(`API error: ${res.status}`);
+      }
+      if (res.status === 204) return null;
+      return await res.json();
+    }
 
     const MONTHLY_CATEGORIES = [
       "Compliance/Audit",
@@ -2650,6 +2909,7 @@
     const BACKLOG_DATE = "1900-01-01";
 
     const state = {
+      organization: null,  // Current organization context
       users: [],
       currentUser: null,
       promotedSuggestions: [],
@@ -6955,6 +7215,153 @@
     function toggleReminderChimes(enabled) {
       localStorage.setItem("wrapsheet-reminder-chimes", enabled ? "true" : "false");
     }
+
+    // ===== ORGANIZATION LOGIN HANDLERS =====
+    function showOrgLoginOverlay() {
+      document.getElementById("org-login-overlay").classList.remove("hidden");
+      document.getElementById("user-overlay").classList.add("hidden");
+      document.getElementById("org-slug-input").focus();
+    }
+
+    function hideOrgLoginOverlay() {
+      document.getElementById("org-login-overlay").classList.add("hidden");
+    }
+
+    function showUserOverlay() {
+      document.getElementById("user-overlay").classList.remove("hidden");
+    }
+
+    function hideUserOverlay() {
+      document.getElementById("user-overlay").classList.add("hidden");
+    }
+
+    function updateOrgBranding(org) {
+      // Update any org-specific branding in the UI
+      const orgLabel = document.getElementById("org-team-label");
+      if (orgLabel && org) {
+        orgLabel.textContent = `Team members for ${org.name}`;
+      }
+
+      // Update header org name
+      const headerOrgName = document.getElementById("header-org-name");
+      if (headerOrgName && org) {
+        headerOrgName.textContent = `${org.name.toUpperCase()} \u2022 DAILY TASKS \u2022 GOALS`;
+      }
+    }
+
+    async function handleOrgSubmit() {
+      const input = document.getElementById("org-slug-input");
+      const errorEl = document.getElementById("org-error");
+      const submitBtn = document.getElementById("org-submit-btn");
+      const previewEl = document.getElementById("org-preview");
+      const previewName = document.getElementById("org-preview-name");
+      const previewSlug = document.getElementById("org-preview-slug");
+
+      const slug = input.value.trim().toLowerCase();
+
+      if (!slug) {
+        errorEl.textContent = "Please enter your organization code";
+        input.classList.add("error");
+        return;
+      }
+
+      // Clear error state
+      errorEl.textContent = "";
+      input.classList.remove("error");
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Looking up...";
+
+      try {
+        const org = await lookupOrganization(slug);
+
+        // Show preview
+        previewName.textContent = org.name;
+        previewSlug.textContent = `@${org.slug}`;
+        previewEl.classList.add("visible");
+
+        // Store org and proceed
+        setOrganization(org);
+        updateOrgBranding(org);
+
+        // Hide org login and show user selection
+        setTimeout(() => {
+          hideOrgLoginOverlay();
+          showUserOverlay();
+          loadUsers(); // Load users for this org
+        }, 800);
+
+      } catch (err) {
+        errorEl.textContent = err.message || "Organization not found";
+        input.classList.add("error");
+        previewEl.classList.remove("visible");
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Continue";
+      }
+    }
+
+    function switchOrganization() {
+      clearOrganization();
+      showOrgLoginOverlay();
+      // Clear input and error
+      document.getElementById("org-slug-input").value = "";
+      document.getElementById("org-error").textContent = "";
+      document.getElementById("org-preview").classList.remove("visible");
+      document.getElementById("org-submit-btn").disabled = false;
+      document.getElementById("org-submit-btn").textContent = "Continue";
+    }
+
+    // Attach org login event handlers
+    function attachOrgLoginHandlers() {
+      const submitBtn = document.getElementById("org-submit-btn");
+      const input = document.getElementById("org-slug-input");
+
+      if (submitBtn) {
+        submitBtn.addEventListener("click", handleOrgSubmit);
+      }
+
+      if (input) {
+        input.addEventListener("keypress", (e) => {
+          if (e.key === "Enter") {
+            handleOrgSubmit();
+          }
+        });
+
+        // Clear error on input
+        input.addEventListener("input", () => {
+          input.classList.remove("error");
+          document.getElementById("org-error").textContent = "";
+        });
+      }
+    }
+
+    // Initialize app - check for existing org or show login
+    async function initializeApp() {
+      attachOrgLoginHandlers();
+
+      const storedOrg = getOrgData();
+
+      if (storedOrg) {
+        // Validate org still exists
+        try {
+          const org = await lookupOrganization(storedOrg.slug);
+          setOrganization(org);
+          updateOrgBranding(org);
+          hideOrgLoginOverlay();
+          showUserOverlay();
+          loadUsers();
+        } catch (err) {
+          // Org no longer valid, show login
+          clearOrganization();
+          showOrgLoginOverlay();
+        }
+      } else {
+        // No stored org, show login screen
+        showOrgLoginOverlay();
+      }
+    }
+
+    // Start the app
+    initializeApp();
   </script>
 </body>
 
