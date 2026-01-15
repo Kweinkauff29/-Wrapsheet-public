@@ -1,0 +1,2 @@
+DELETE FROM task_votes WHERE user_id IN (SELECT id FROM users WHERE name IN ('Agent Smith', 'Kevin Test', 'Kevin Weinkauff', 'Kevin test 3', 'Shayden Hare Thrasher', 'Wade Abed', 'Gail Langner', 'Jenna Ripley', 'Meighan Harris'));
+DELETE FROM users WHERE name IN ('Agent Smith', 'Kevin Test', 'Kevin Weinkauff', 'Kevin test 3', 'Shayden Hare Thrasher', 'Wade Abed', 'Gail Langner', 'Jenna Ripley', 'Meighan Harris');
