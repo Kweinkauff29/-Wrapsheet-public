@@ -198,43 +198,7 @@ async function listUsers(env, params, orgId) {
     }
 }
 
-async function createUser(request, env) {
-    const body = await getBody(request);
-    const { name, email, role = 'staff', org_id } = body;
 
-    if (!name || !email) {
-        return json({ error: "name and email are required" }, 400);
-    }
-
-    if (!org_id) {
-        return json({ error: "org_id is required" }, 400);
-    }
-
-    const now = new Date().toISOString();
-
-    try {
-        const info = await env.WRAP_DB
-            .prepare(`
-                INSERT INTO users (name, email, role, is_active, org_id, created_at, updated_at)
-                VALUES (?, ?, ?, 1, ?, ?, ?)
-            `)
-            .bind(name, email, role, org_id, now, now)
-            .run();
-
-        const insertedId = info.meta?.last_row_id;
-        const user = await env.WRAP_DB
-            .prepare(`SELECT * FROM users WHERE id = ?`)
-            .bind(insertedId)
-            .first();
-
-        return json(user, 201);
-    } catch (err) {
-        if (err.message?.includes("UNIQUE constraint")) {
-            return json({ error: "Email already exists" }, 409);
-        }
-        throw err;
-    }
-}
 
 /* ---------- DAILY TASK ASSIGNEES (MULTI-ASSIGN) ---------- */
 
