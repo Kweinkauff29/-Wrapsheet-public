@@ -1,0 +1,9 @@
+DELETE FROM users WHERE name = 'Agent Smith';
+DELETE FROM users WHERE name = 'Kevin Test';
+DELETE FROM users WHERE name = 'Kevin Weinkauff';
+DELETE FROM users WHERE name = 'Kevin test 3';
+DELETE FROM users WHERE name = 'Shayden Hare Thrasher';
+DELETE FROM users WHERE name = 'Wade Abed';
+DELETE FROM users WHERE name = 'Gail Langner';
+DELETE FROM users WHERE name = 'Jenna Ripley';
+DELETE FROM users WHERE name = 'Meighan Harris';
