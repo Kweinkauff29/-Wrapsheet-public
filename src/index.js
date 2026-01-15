@@ -1479,16 +1479,21 @@ async function recalculateGoalProgress(env, goalType, goalId) {
 
 /* ---------- PROJECTS ---------- */
 
-async function listProjects(env) {
-    const { results } = await env.WRAP_DB
-        .prepare(`
+async function listProjects(env, orgId) {
+    // Build query with optional org_id filter
+    let query = `
             SELECT p.*, u.name AS created_by_name
             FROM projects p
             JOIN users u ON p.created_by_id = u.id
-            WHERE p.status != 'archived'
-            ORDER BY p.created_at DESC
-        `)
-        .all();
+            WHERE p.status != 'archived'`;
+
+    if (orgId) {
+        query += ` AND p.org_id = ?`;
+    }
+    query += ` ORDER BY p.created_at DESC`;
+
+    const stmt = env.WRAP_DB.prepare(query);
+    const { results } = orgId ? await stmt.bind(orgId).all() : await stmt.all();
 
     // Eagerly load steps for all projects
     if (results.length > 0) {
@@ -1611,7 +1616,7 @@ async function getProjectWithSteps(env, projectId) {
     return json(project);
 }
 
-async function createProject(request, env) {
+async function createProject(request, env, orgId) {
     const body = await getBody(request);
     const { title, description = "", created_by_id, waiting_on = "", blocking_task = "" } = body;
 
@@ -1623,10 +1628,10 @@ async function createProject(request, env) {
 
     const info = await env.WRAP_DB
         .prepare(`
-            INSERT INTO projects (title, description, created_by_id, status, created_at, updated_at, waiting_on, blocking_task)
-            VALUES (?, ?, ?, 'active', ?, ?, ?, ?)
+            INSERT INTO projects (title, description, created_by_id, status, created_at, updated_at, waiting_on, blocking_task, org_id)
+            VALUES (?, ?, ?, 'active', ?, ?, ?, ?, ?)
         `)
-        .bind(title, description, created_by_id, now, now, waiting_on, blocking_task)
+        .bind(title, description, created_by_id, now, now, waiting_on, blocking_task, orgId || null)
         .run();
 
     const insertedId = info.meta?.last_row_id;
@@ -2356,12 +2361,13 @@ export default {
 
             // ===== PROJECTS =====
             if (pathname === "/api/projects" && request.method === "GET") {
-                return await listProjects(env);
+                return await listProjects(env, orgId);
             }
 
             if (pathname === "/api/projects" && request.method === "POST") {
-                return await createProject(request, env);
+                return await createProject(request, env, orgId);
             }
+
 
             if (pathname.startsWith("/api/projects/")) {
                 const segments = pathname.split("/");
