@@ -2,6 +2,15 @@ name = "wrapsheet-public"
 main = "src/index.js"
 compatibility_date = "2024-01-01"
 
+# Serve static files from public folder
+[assets]
+directory = "./public"
+
+# Custom domain route
+routes = [
+  { pattern = "wrapsheet.ccorealtors.com", custom_domain = true }
+]
+
 [[d1_databases]]
 binding = "WRAP_DB"
 database_name = "wrap_sheet"
