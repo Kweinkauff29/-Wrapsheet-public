@@ -2939,7 +2939,13 @@
       userPrefs: null,        // prefs for activeUserId (titles, category labels, etc.)
       monthlyCategoryDefs: null, // [{key,label}]
       annualCategoryDefs: null,
+      // Live sync configuration
+      liveSyncIntervalId: null,
+      liveSyncEnabled: true,
     };
+
+    // Live sync interval (30 seconds)
+    const LIVE_SYNC_INTERVAL_MS = 30000;
 
 
     const DEFAULT_MONTHLY_KEYS = [
@@ -4269,6 +4275,7 @@
         setCurrentUser(user);
         document.getElementById("user-overlay").classList.add("hidden");
         await refreshAllData();
+        startLiveSync(); // Start live syncing after user logs in
       });
 
       document.getElementById("switch-user-btn").addEventListener("click", () => {
@@ -4522,14 +4529,57 @@
     }
 
     // ===== DATA REFRESH =====
-    async function refreshAllData() {
-      await refreshCalendarAndMonthlyGoals();
-      await loadAnnualGoals();
-      await loadProjects();
-      await loadUserDbPreferences();
-      await loadPromotedSuggestions(); // New
-      initWeeklyTasksUI();
+    async function refreshAllData(silent = false) {
+      try {
+        await refreshCalendarAndMonthlyGoals();
+        await loadAnnualGoals();
+        await loadProjects();
+        await loadUserDbPreferences();
+        await loadPromotedSuggestions();
+        initWeeklyTasksUI();
+        if (!silent) {
+          // Only show feedback for manual refreshes
+        }
+      } catch (err) {
+        if (!silent) {
+          console.error("Error refreshing data:", err);
+        }
+      }
     }
+
+    // ===== LIVE SYNC =====
+    function startLiveSync() {
+      // Clear any existing interval first
+      stopLiveSync();
+
+      if (!state.liveSyncEnabled) return;
+
+      console.log("[LiveSync] Starting with interval:", LIVE_SYNC_INTERVAL_MS, "ms");
+
+      state.liveSyncIntervalId = setInterval(async () => {
+        // Only sync if page is visible
+        if (document.visibilityState === "visible" && state.currentUser) {
+          console.log("[LiveSync] Refreshing data...");
+          await refreshAllData(true); // Silent refresh
+        }
+      }, LIVE_SYNC_INTERVAL_MS);
+    }
+
+    function stopLiveSync() {
+      if (state.liveSyncIntervalId) {
+        console.log("[LiveSync] Stopping");
+        clearInterval(state.liveSyncIntervalId);
+        state.liveSyncIntervalId = null;
+      }
+    }
+
+    // Visibility change handler - refresh when tab becomes visible
+    document.addEventListener("visibilitychange", async () => {
+      if (document.visibilityState === "visible" && state.currentUser) {
+        console.log("[LiveSync] Tab became visible, refreshing data...");
+        await refreshAllData(true); // Immediate refresh when returning to tab
+      }
+    });
 
     // Fetch top suggestions assigned to current user
     async function loadPromotedSuggestions() {
@@ -7296,6 +7346,7 @@
     }
 
     function switchOrganization() {
+      stopLiveSync(); // Stop live sync before switching orgs
       clearOrganization();
       showOrgLoginOverlay();
       // Clear input and error
