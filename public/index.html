@@ -3617,13 +3617,9 @@
       setTimeout(() => toast.classList.remove("show"), 2800);
     }
 
-    async function apiGet(path) {
-      const res = await fetch(API_BASE + path, {
-        headers: { "Accept": "application/json" }
-      });
-      if (!res.ok) throw new Error("GET " + path + " failed");
-      return res.json();
-    }
+    // NOTE: apiGet with org headers is defined earlier (line ~2869)
+    // The duplicate was removed to ensure all API calls use org context
+
 
     async function apiSend(path, method, body) {
       showActionLoader(); // TikTok-style popup

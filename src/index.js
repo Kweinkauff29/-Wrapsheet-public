@@ -180,7 +180,28 @@ async function updateOrganization(request, env, id) {
     return json(updated);
 }
 
+async function deleteOrganization(env, id) {
+    // Check if org exists
+    const existing = await env.WRAP_DB
+        .prepare(`SELECT * FROM organizations WHERE id = ?`)
+        .bind(id)
+        .first();
+
+    if (!existing) {
+        return json({ error: "Organization not found" }, 404);
+    }
+
+    // Delete the organization (users with this org_id will have orphaned org_id, but that's ok)
+    await env.WRAP_DB
+        .prepare(`DELETE FROM organizations WHERE id = ?`)
+        .bind(id)
+        .run();
+
+    return json({ success: true, message: `Organization "${existing.name}" deleted` });
+}
+
 /* ---------- USERS ---------- */
+
 
 async function listUsers(env, params, orgId) {
     // SPECIAL RULE: For Bonita-Estero (ID 1), ONLY show 'staff'
@@ -2130,6 +2151,9 @@ export default {
                 }
                 if (request.method === "PATCH") {
                     return await updateOrganization(request, env, identifier);
+                }
+                if (request.method === "DELETE") {
+                    return await deleteOrganization(env, identifier);
                 }
             }
 

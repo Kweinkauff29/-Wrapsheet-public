@@ -100,10 +100,16 @@
 
                 <div class="mb-6">
                     <label class="block text-sm font-medium mb-1">Select Organization</label>
-                    <select id="org-select" class="w-full p-2 border rounded max-w-md">
-                        <option value="">-- Select an Organization --</option>
-                    </select>
+                    <div class="flex gap-2 items-center max-w-md">
+                        <select id="org-select" class="flex-1 p-2 border rounded">
+                            <option value="">-- Select an Organization --</option>
+                        </select>
+                        <button id="delete-org-btn" type="button"
+                            class="bg-red-500 text-white px-3 py-2 rounded hover:bg-red-600 hidden"
+                            title="Delete Organization">🗑️</button>
+                    </div>
                 </div>
+
 
                 <div id="users-panel" class="hidden">
                     <div class="mb-6 bg-slate-50 p-4 rounded border">
@@ -294,15 +300,49 @@
         });
 
         // --- Users ---
+        const deleteOrgBtn = document.getElementById('delete-org-btn');
+
         orgSelect.addEventListener('change', () => {
             const orgId = orgSelect.value;
             if (orgId) {
                 usersPanel.classList.remove('hidden');
+                deleteOrgBtn.classList.remove('hidden');
                 loadUsers(orgId);
             } else {
                 usersPanel.classList.add('hidden');
+                deleteOrgBtn.classList.add('hidden');
             }
         });
+
+        // --- Delete Organization ---
+        deleteOrgBtn.addEventListener('click', async () => {
+            const orgId = orgSelect.value;
+            if (!orgId) return;
+
+            const selectedOption = orgSelect.options[orgSelect.selectedIndex];
+            const orgName = selectedOption.textContent;
+
+            // Double confirmation for safety
+            if (!confirm(`Are you sure you want to delete "${orgName}"?\n\nThis action cannot be undone.`)) {
+                return;
+            }
+
+            if (!confirm(`FINAL WARNING: All users in this organization will be orphaned.\n\nType 'DELETE' mentally and click OK to confirm deletion of "${orgName}".`)) {
+                return;
+            }
+
+            try {
+                await apiCall(`/organizations/${orgId}`, 'DELETE');
+                alert(`Organization "${orgName}" deleted successfully.`);
+                orgSelect.value = '';
+                usersPanel.classList.add('hidden');
+                deleteOrgBtn.classList.add('hidden');
+                loadOrganizations();
+            } catch (e) {
+                console.error('Delete failed:', e);
+            }
+        });
+
 
         async function loadUsers(orgId) {
             usersList.innerHTML = '<li class="p-4 text-slate-400">Loading...</li>';
