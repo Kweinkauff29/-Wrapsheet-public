@@ -1,0 +1,57 @@
+
+ ⛅️ wrangler 4.55.0 (update available 4.59.1)
+─────────────────────────────────────────────
+Resource location: remote 
+
+[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mProcessing wrangler.toml configuration:[0m
+
+    - Unexpected fields found in assets field: "routes"
+
+
+[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1m⚠️ This process may take some time, during which your D1 database will be unavailable to serve queries.[0m
+
+
+🌀 Executing on remote database WRAP_DB (fbba489f-fc17-4472-b70f-578ce5fd9933):
+🌀 To execute on your local development database, remove the --remote flag from your wrangler command.
+Note: if the execution fails to complete, your DB will return to its original state and you can safely retry.
+├ Checking if file needs uploading
+│
+├ 🌀 Uploading fbba489f-fc17-4472-b70f-578ce5fd9933.b3c630a32ad8af19.sql
+│ 🌀 Uploading complete.
+│
+🌀 Starting import...
+🌀 Processed 2 queries.
+🚣 Executed 2 queries in 1.76ms (15 rows read, 6 rows written)
+   Database is currently at bookmark 000001ed-00000012-00004ff4-d07dc6014df04c948b9cfbf8b269e895.
+[
+  {
+    "results": [
+      {
+        "Total queries executed": 2,
+        "Rows read": 15,
+        "Rows written": 6,
+        "Database size (MB)": "0.51"
+      }
+    ],
+    "success": true,
+    "finalBookmark": "000001ed-00000012-00004ff4-d07dc6014df04c948b9cfbf8b269e895",
+    "meta": {
+      "served_by": "v3-prod",
+      "served_by_region": "ENAM",
+      "served_by_colo": "MIA",
+      "served_by_primary": true,
+      "timings": {
+        "sql_duration_ms": 1.7639
+      },
+      "duration": 1.7639,
+      "changes": 2,
+      "last_row_id": 1,
+      "changed_db": true,
+      "size_after": 512000,
+      "rows_read": 15,
+      "rows_written": 6,
+      "num_tables": 22,
+      "total_attempts": 1
+    }
+  }
+]
