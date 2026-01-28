@@ -2248,74 +2248,189 @@ export default {
 
             // ===== DAILY SUBTASKS (direct by id) =====
             if (pathname.startsWith("/api/daily-subtasks/")) {
-                const parts = pathname.split("/");
-                const id = parts[3];
+                const subtaskId = pathname.split("/").pop();
 
                 if (request.method === "PATCH") {
-                    const body = await getBody(request);
-                    const { title, notes, due_date, status, assigned_to_id } = body;
-                    const now = new Date().toISOString();
-
-                    let completed_at = undefined; // undefined means don't touch unless status changed
-                    // fetch existing if needed to check status logic, or just simple update:
-                    // simpler: if status is 'done', set completed_at = now. if pending, null.
-                    // But we'd need to know previous state to be perfect.
-                    // For now, simple logic:
-                    if (status === "done") completed_at = now;
-                    else if (status === "pending") completed_at = null;
-
-                    await env.WRAP_DB
-                        .prepare(`
-                  UPDATE daily_task_subtasks
-                  SET title = coalesce(?, title),
-                      notes = coalesce(?, notes),
-                      due_date = coalesce(?, due_date),
-                      status = coalesce(?, status),
-                      assigned_to_id = coalesce(?, assigned_to_id),
-                      completed_at = CASE WHEN ? = 'done' THEN ? WHEN ? = 'pending' THEN NULL ELSE completed_at END,
-                      updated_at = ?
-                  WHERE id = ?
-                `)
-                        .bind(
-                            title,
-                            notes,
-                            due_date,
-                            status,
-                            assigned_to_id,
-                            status, now, status,
-                            now,
-                            id
-                        )
-                        .run();
-
-                    return json({ success: true });
+                    return await updateDailySubtask(request, env, subtaskId);
                 }
 
                 if (request.method === "DELETE") {
                     await env.WRAP_DB
                         .prepare(`DELETE FROM daily_task_subtasks WHERE id = ?`)
+                        .bind(subtaskId)
+                        .run();
+                    return new Response(null, { status: 204, headers: CORS_HEADERS });
+                }
+            }
+
+            // ===== MONTHLY GOALS =====
+            if (pathname === "/api/monthly-goals" && request.method === "GET") {
+                return await listMonthlyGoals(env, searchParams);
+            }
+
+            if (pathname === "/api/monthly-goals" && request.method === "POST") {
+                return await createMonthlyGoal(request, env);
+            }
+
+            if (pathname.startsWith("/api/monthly-goals/")) {
+                const id = pathname.split("/").pop();
+
+                if (request.method === "PATCH") {
+                    return await updateMonthlyGoal(request, env, id);
+                }
+
+                if (request.method === "DELETE") {
+                    await env.WRAP_DB
+                        .prepare(`DELETE FROM monthly_goals WHERE id = ?`)
                         .bind(id)
                         .run();
                     return new Response(null, { status: 204, headers: CORS_HEADERS });
                 }
             }
 
-            // ===== WEEKLY TASKS =====
-            if (pathname === "/api/weekly-tasks" && request.method === "GET") {
-                const userId = searchParams.get("userId");
-                const weekKey = searchParams.get("week");
-                return await listWeeklyTasks(env, userId, weekKey);
-            }
-            if (pathname === "/api/weekly-tasks" && request.method === "POST") {
-                return await createWeeklyTask(request, env);
-            }
-            if (pathname.startsWith("/api/weekly-tasks/")) {
-                const id = pathname.split("/")[3];
-                if (request.method === "PATCH") return await updateWeeklyTask(request, env, id);
-                if (request.method === "DELETE") return await deleteWeeklyTask(env, id);
+            // ===== ANNUAL GOALS =====
+            if (pathname === "/api/annual-goals" && request.method === "GET") {
+                return await listAnnualGoals(env, searchParams);
             }
 
-            // ===== PILLAR SUGGESTIONS =====
+            if (pathname === "/api/annual-goals" && request.method === "POST") {
+                return await createAnnualGoal(request, env);
+            }
+
+            if (pathname.startsWith("/api/annual-goals/")) {
+                const id = pathname.split("/").pop();
+
+                if (request.method === "PATCH") {
+                    return await updateAnnualGoal(request, env, id);
+                }
+
+                if (request.method === "DELETE") {
+                    await env.WRAP_DB
+                        .prepare(`DELETE FROM annual_goals WHERE id = ?`)
+                        .bind(id)
+                        .run();
+                    return new Response(null, { status: 204, headers: CORS_HEADERS });
+                }
+            }
+
+            // ===== GOAL CATEGORIES =====
+            if (pathname === "/api/goal-categories" && request.method === "GET") {
+                return await listGoalCategories(env, searchParams);
+            }
+
+            if (pathname === "/api/goal-categories" && request.method === "POST") {
+                return await createGoalCategory(request, env);
+            }
+
+            if (pathname.startsWith("/api/goal-categories/")) {
+                const id = pathname.split("/").pop();
+
+                if (request.method === "PATCH") {
+                    return await updateGoalCategory(request, env, id);
+                }
+            }
+
+            // ===== GOAL SUBTASKS =====
+            // GET/POST /api/goals/:type/:id/subtasks
+            const goalSubtasksMatch = pathname.match(/^\/api\/goals\/(monthly|annual)\/(\d+)\/subtasks$/);
+            if (goalSubtasksMatch) {
+                const [, goalType, goalId] = goalSubtasksMatch;
+
+                if (request.method === "GET") {
+                    return await listGoalSubtasks(env, goalType, goalId);
+                }
+
+                if (request.method === "POST") {
+                    return await createGoalSubtask(request, env, goalType, goalId);
+                }
+            }
+
+            // PATCH/DELETE /api/goal-subtasks/:id
+            if (pathname.startsWith("/api/goal-subtasks/")) {
+                const segments = pathname.split("/");
+                const subtaskId = segments[3];
+                const action = segments[4]; // 'add-to-calendar' or undefined
+
+                // POST /api/goal-subtasks/:id/add-to-calendar
+                if (action === "add-to-calendar" && request.method === "POST") {
+                    return await addGoalSubtaskToCalendar(request, env, subtaskId);
+                }
+
+                if (request.method === "PATCH") {
+                    return await updateGoalSubtask(request, env, subtaskId);
+                }
+
+                if (request.method === "DELETE") {
+                    return await deleteGoalSubtask(env, subtaskId);
+                }
+            }
+
+            // ===== PROJECTS =====
+            if (pathname === "/api/projects" && request.method === "GET") {
+                return await listProjects(env, orgId);
+            }
+
+            if (pathname === "/api/projects" && request.method === "POST") {
+                return await createProject(request, env, orgId);
+            }
+
+
+            if (pathname.startsWith("/api/projects/")) {
+                const segments = pathname.split("/");
+                const projectId = segments[3];
+                const resource = segments[4]; // 'steps' or undefined
+
+                // GET /api/projects/:id (with steps)
+                if (!resource && request.method === "GET") {
+                    return await getProjectWithSteps(env, projectId);
+                }
+
+                if (request.method === "PATCH") {
+                    return await updateProject(request, env, projectId);
+                }
+
+                if (request.method === "DELETE") {
+                    return await deleteProject(env, projectId);
+                }
+
+                // POST /api/projects/:id/duplicate
+                if (resource === "duplicate" && request.method === "POST") {
+                    return await duplicateProject(request, env, projectId);
+                }
+
+                // POST /api/projects/:id/steps
+                if (resource === "steps" && request.method === "POST") {
+                    return await createProjectStep(request, env, projectId);
+                }
+            }
+
+            // ===== PROJECT STEPS =====
+            if (pathname.startsWith("/api/project-steps/")) {
+                const stepId = pathname.split("/").pop();
+
+                if (request.method === "PATCH") {
+                    return await updateProjectStep(request, env, stepId);
+                }
+
+                if (request.method === "DELETE") {
+                    return await deleteProjectStep(env, stepId);
+                }
+            }
+
+            // ===== USER PREFERENCES =====
+            if (pathname.startsWith("/api/user-preferences/")) {
+                const userId = pathname.split("/").pop();
+
+                if (request.method === "GET") {
+                    return await getUserPreferences(env, userId);
+                }
+
+                if (request.method === "PUT") {
+                    return await saveUserPreferences(request, env, userId);
+                }
+            }
+
+            // ===== BOARD IDEAS & VOTING =====
             if (pathname === "/api/pillar-suggestions" && request.method === "GET") {
                 return await listPillarSuggestions(env, searchParams);
             }
@@ -2324,519 +2439,268 @@ export default {
             }
             if (pathname.startsWith("/api/pillar-suggestions/")) {
                 const parts = pathname.split("/");
-                const id = parts[3];
-                if (parts[4] === "vote" && request.method === "POST") return await toggleTaskVote(request, env, id);
-                if (request.method === "PATCH") return await updatePillarSuggestion(request, env, id);
-                if (request.method === "DELETE") return await deletePillarSuggestion(env, id);
-            }
+                const id = parts[3]; // /api/pillar-suggestions/123...
 
-            // ===== SHOP & COINS =====
-            // Shop Items
-            if (pathname === "/api/shop/items" && request.method === "GET") {
-                const { results } = await env.WRAP_DB.prepare("SELECT * FROM shop_items ORDER BY price ASC").all();
-                return json(results);
-            }
-            // Coins
-            if (pathname.match(/^\/api\/users\/\d+\/coins$/)) {
-                const uid = pathname.split("/")[3];
-                if (request.method === "GET") {
-                    const u = await env.WRAP_DB.prepare("SELECT coin_balance, coin_day_earned, coin_day_key, coin_week_earned, coin_week_key FROM users WHERE id = ?").bind(uid).first();
-                    return json(u || {});
+                if (parts[4] === "vote" && request.method === "POST") {
+                    // /api/pillar-suggestions/123/vote
+                    return await toggleTaskVote(request, env, id);
                 }
-                if (request.method === "PUT") {
-                    const body = await getBody(request);
-                    // Update coins
-                    await env.WRAP_DB.prepare(`UPDATE users SET 
-                        coin_balance=?, coin_day_earned=?, coin_day_key=?, coin_week_earned=?, coin_week_key=?
-                        WHERE id=?`).bind(
-                        body.coin_balance, body.coin_day_earned, body.coin_day_key, body.coin_week_earned, body.coin_week_key, uid
-                    ).run();
+
+                if (request.method === "PATCH") {
+                    return await updatePillarSuggestion(request, env, id);
+                }
+
+                if (request.method === "DELETE") {
+                    await env.WRAP_DB.prepare("DELETE FROM task_votes WHERE task_id = ?").bind(id).run();
+                    await env.WRAP_DB.prepare("DELETE FROM pillar_suggestions WHERE id = ?").bind(id).run();
                     return json({ success: true });
                 }
             }
-            // Inventory
-            if (pathname.match(/^\/api\/users\/\d+\/inventory$/)) {
-                const uid = pathname.split("/")[3];
-                const { results } = await env.WRAP_DB.prepare(`
-                    SELECT ui.*, si.name, si.image_url, si.category 
-                    FROM user_inventory ui
-                    JOIN shop_items si ON ui.item_id = si.id
-                    WHERE ui.user_id = ?
-                `).bind(uid).all();
-                return json(results);
+
+            // ===== USER VOTE COUNT =====
+            if (pathname === "/api/user-votes" && request.method === "GET") {
+                const userId = searchParams.get("userId");
+                if (!userId) return json({ error: "userId required" }, 400);
+
+                const now = new Date();
+                const voteMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+                const countRes = await env.WRAP_DB.prepare("SELECT COUNT(*) as count FROM task_votes WHERE user_id = ? AND vote_month = ?")
+                    .bind(userId, voteMonth).first();
+
+                const used = countRes ? countRes.count : 0;
+                const remaining = Math.max(0, 5 - used);
+
+                return json({ used, remaining, limit: 5, month: voteMonth });
             }
-            // Equipped
-            if (pathname.match(/^\/api\/users\/\d+\/equipped$/)) {
-                const uid = pathname.split("/")[3];
-                if (request.method === "GET") {
-                    const row = await env.WRAP_DB.prepare("SELECT * FROM user_equipped WHERE user_id=?").bind(uid).first();
-                    if (row && row.equipped_items) row.equipped_items = JSON.parse(row.equipped_items);
-                    return json(row || { equipped_items: {} });
-                }
-                if (request.method === "PUT") { // Update equipped
-                    const body = await getBody(request);
-                    const itemsStr = JSON.stringify(body.equipped_items || {});
-                    // Upsert
-                    await env.WRAP_DB.prepare(`
-                        INSERT INTO user_equipped (user_id, equipped_items, updated_at) VALUES (?, ?, ?)
-                        ON CONFLICT(user_id) DO UPDATE SET equipped_items=excluded.equipped_items, updated_at=excluded.updated_at
-                     `).bind(uid, itemsStr, new Date().toISOString()).run();
-                    return json({ success: true });
-                }
-            }
-            const subtaskId = pathname.split("/").pop();
+            // ===== LICENSE VERIFICATION =====
+            if (pathname === "/api/verify-license" && request.method === "GET") {
+                const license = searchParams.get("number");
+                if (!license) return json({ error: "License number required" }, 400);
 
-            if (request.method === "PATCH") {
-                return await updateDailySubtask(request, env, subtaskId);
-            }
-
-            if (request.method === "DELETE") {
-                await env.WRAP_DB
-                    .prepare(`DELETE FROM daily_task_subtasks WHERE id = ?`)
-                    .bind(subtaskId)
-                    .run();
-                return new Response(null, { status: 204, headers: CORS_HEADERS });
-            }
-        }
-
-            // ===== MONTHLY GOALS =====
-            if (pathname === "/api/monthly-goals" && request.method === "GET") {
-            return await listMonthlyGoals(env, searchParams);
-        }
-
-        if (pathname === "/api/monthly-goals" && request.method === "POST") {
-            return await createMonthlyGoal(request, env);
-        }
-
-        if (pathname.startsWith("/api/monthly-goals/")) {
-            const id = pathname.split("/").pop();
-
-            if (request.method === "PATCH") {
-                return await updateMonthlyGoal(request, env, id);
-            }
-
-            if (request.method === "DELETE") {
-                await env.WRAP_DB
-                    .prepare(`DELETE FROM monthly_goals WHERE id = ?`)
-                    .bind(id)
-                    .run();
-                return new Response(null, { status: 204, headers: CORS_HEADERS });
-            }
-        }
-
-        // ===== ANNUAL GOALS =====
-        if (pathname === "/api/annual-goals" && request.method === "GET") {
-            return await listAnnualGoals(env, searchParams);
-        }
-
-        if (pathname === "/api/annual-goals" && request.method === "POST") {
-            return await createAnnualGoal(request, env);
-        }
-
-        if (pathname.startsWith("/api/annual-goals/")) {
-            const id = pathname.split("/").pop();
-
-            if (request.method === "PATCH") {
-                return await updateAnnualGoal(request, env, id);
-            }
-
-            if (request.method === "DELETE") {
-                await env.WRAP_DB
-                    .prepare(`DELETE FROM annual_goals WHERE id = ?`)
-                    .bind(id)
-                    .run();
-                return new Response(null, { status: 204, headers: CORS_HEADERS });
-            }
-        }
-
-        // ===== GOAL CATEGORIES =====
-        if (pathname === "/api/goal-categories" && request.method === "GET") {
-            return await listGoalCategories(env, searchParams);
-        }
-
-        if (pathname === "/api/goal-categories" && request.method === "POST") {
-            return await createGoalCategory(request, env);
-        }
-
-        if (pathname.startsWith("/api/goal-categories/")) {
-            const id = pathname.split("/").pop();
-
-            if (request.method === "PATCH") {
-                return await updateGoalCategory(request, env, id);
-            }
-        }
-
-        // ===== GOAL SUBTASKS =====
-        // GET/POST /api/goals/:type/:id/subtasks
-        const goalSubtasksMatch = pathname.match(/^\/api\/goals\/(monthly|annual)\/(\d+)\/subtasks$/);
-        if (goalSubtasksMatch) {
-            const [, goalType, goalId] = goalSubtasksMatch;
-
-            if (request.method === "GET") {
-                return await listGoalSubtasks(env, goalType, goalId);
-            }
-
-            if (request.method === "POST") {
-                return await createGoalSubtask(request, env, goalType, goalId);
-            }
-        }
-
-        // PATCH/DELETE /api/goal-subtasks/:id
-        if (pathname.startsWith("/api/goal-subtasks/")) {
-            const segments = pathname.split("/");
-            const subtaskId = segments[3];
-            const action = segments[4]; // 'add-to-calendar' or undefined
-
-            // POST /api/goal-subtasks/:id/add-to-calendar
-            if (action === "add-to-calendar" && request.method === "POST") {
-                return await addGoalSubtaskToCalendar(request, env, subtaskId);
-            }
-
-            if (request.method === "PATCH") {
-                return await updateGoalSubtask(request, env, subtaskId);
-            }
-
-            if (request.method === "DELETE") {
-                return await deleteGoalSubtask(env, subtaskId);
-            }
-        }
-
-        // ===== PROJECTS =====
-        if (pathname === "/api/projects" && request.method === "GET") {
-            return await listProjects(env, orgId);
-        }
-
-        if (pathname === "/api/projects" && request.method === "POST") {
-            return await createProject(request, env, orgId);
-        }
-
-
-        if (pathname.startsWith("/api/projects/")) {
-            const segments = pathname.split("/");
-            const projectId = segments[3];
-            const resource = segments[4]; // 'steps' or undefined
-
-            // GET /api/projects/:id (with steps)
-            if (!resource && request.method === "GET") {
-                return await getProjectWithSteps(env, projectId);
-            }
-
-            if (request.method === "PATCH") {
-                return await updateProject(request, env, projectId);
-            }
-
-            if (request.method === "DELETE") {
-                return await deleteProject(env, projectId);
-            }
-
-            // POST /api/projects/:id/duplicate
-            if (resource === "duplicate" && request.method === "POST") {
-                return await duplicateProject(request, env, projectId);
-            }
-
-            // POST /api/projects/:id/steps
-            if (resource === "steps" && request.method === "POST") {
-                return await createProjectStep(request, env, projectId);
-            }
-        }
-
-        // ===== PROJECT STEPS =====
-        if (pathname.startsWith("/api/project-steps/")) {
-            const stepId = pathname.split("/").pop();
-
-            if (request.method === "PATCH") {
-                return await updateProjectStep(request, env, stepId);
-            }
-
-            if (request.method === "DELETE") {
-                return await deleteProjectStep(env, stepId);
-            }
-        }
-
-        // ===== USER PREFERENCES =====
-        if (pathname.startsWith("/api/user-preferences/")) {
-            const userId = pathname.split("/").pop();
-
-            if (request.method === "GET") {
-                return await getUserPreferences(env, userId);
-            }
-
-            if (request.method === "PUT") {
-                return await saveUserPreferences(request, env, userId);
-            }
-        }
-
-        // ===== BOARD IDEAS & VOTING =====
-        if (pathname === "/api/pillar-suggestions" && request.method === "GET") {
-            return await listPillarSuggestions(env, searchParams);
-        }
-        if (pathname === "/api/pillar-suggestions" && request.method === "POST") {
-            return await createPillarSuggestion(request, env);
-        }
-        if (pathname.startsWith("/api/pillar-suggestions/")) {
-            const parts = pathname.split("/");
-            const id = parts[3]; // /api/pillar-suggestions/123...
-
-            if (parts[4] === "vote" && request.method === "POST") {
-                // /api/pillar-suggestions/123/vote
-                return await toggleTaskVote(request, env, id);
-            }
-
-            if (request.method === "PATCH") {
-                return await updatePillarSuggestion(request, env, id);
-            }
-
-            if (request.method === "DELETE") {
-                await env.WRAP_DB.prepare("DELETE FROM task_votes WHERE task_id = ?").bind(id).run();
-                await env.WRAP_DB.prepare("DELETE FROM pillar_suggestions WHERE id = ?").bind(id).run();
-                return json({ success: true });
-            }
-        }
-
-        // ===== USER VOTE COUNT =====
-        if (pathname === "/api/user-votes" && request.method === "GET") {
-            const userId = searchParams.get("userId");
-            if (!userId) return json({ error: "userId required" }, 400);
-
-            const now = new Date();
-            const voteMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-
-            const countRes = await env.WRAP_DB.prepare("SELECT COUNT(*) as count FROM task_votes WHERE user_id = ? AND vote_month = ?")
-                .bind(userId, voteMonth).first();
-
-            const used = countRes ? countRes.count : 0;
-            const remaining = Math.max(0, 5 - used);
-
-            return json({ used, remaining, limit: 5, month: voteMonth });
-        }
-        // ===== LICENSE VERIFICATION =====
-        if (pathname === "/api/verify-license" && request.method === "GET") {
-            const license = searchParams.get("number");
-            if (!license) return json({ error: "License number required" }, 400);
-
-            // Strip everything except digits (e.g. SL3360322 -> 3360322)
-            const clean = license.trim().replace(/\D/g, "");
-            // Basic format check to fail fast on garbage
-            if (clean.length < 4) {
-                return json({ valid: false, message: "License number too short" });
-            }
-
-            try {
-                // Step 1: GET the Search Page to establish session cookies
-                // We must request the specific search type page to get the right form context, though cookies are usually global.
-                const searchPageUrl = "https://www.myfloridalicense.com/wl11.asp?mode=1&search=LicNbr&SID=&brd=&typ=";
-                const userAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
-
-                const res1 = await fetch(searchPageUrl, {
-                    headers: { "User-Agent": userAgent }
-                });
-
-                // Extract Cookies (Set-Cookie header)
-                // We must filter out attributes like Path, HttpOnly, etc.
-                const cookieHeader = res1.headers.get("set-cookie");
-                let cookies = "";
-                if (cookieHeader) {
-                    // Take only the first part before any semicolon for each cookie if multiple,
-                    // but fetch typically returns them as one string or we just need the first token.
-                    // Simple approach: split by ';' and take the first item.
-                    cookies = cookieHeader.split(';')[0];
+                // Strip everything except digits (e.g. SL3360322 -> 3360322)
+                const clean = license.trim().replace(/\D/g, "");
+                // Basic format check to fail fast on garbage
+                if (clean.length < 4) {
+                    return json({ valid: false, message: "License number too short" });
                 }
 
-                // Step 2: POST the search
-                // Action URL found in research: mode=2
-                const postUrl = "https://www.myfloridalicense.com/wl11.asp?mode=2&search=LicNbr&SID=&brd=&typ=";
+                try {
+                    // Step 1: GET the Search Page to establish session cookies
+                    // We must request the specific search type page to get the right form context, though cookies are usually global.
+                    const searchPageUrl = "https://www.myfloridalicense.com/wl11.asp?mode=1&search=LicNbr&SID=&brd=&typ=";
+                    const userAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
-                // Construct form data
-                const params = new URLSearchParams();
-                params.append("hSID", "");
-                params.append("hSearchType", "LicNbr");
-                params.append("hLastName", "");
-                params.append("hFirstName", "");
-                params.append("hMiddleName", "");
-                params.append("hOrgName", "");
-                params.append("hSearchOpt", "");
-                params.append("hSearchOpt2", "");
-                params.append("hSearchAltName", "");
-                params.append("hSearchPartName", "");
-                params.append("hSearchFuzzy", "");
-                params.append("hDivision", "ALL");
-                params.append("hBoard", "");
-                params.append("hLicenseType", "");
-                params.append("hSpecQual", "");
-                params.append("hAddrType", "");
-                params.append("hCity", "");
-                params.append("hCounty", "");
-                params.append("hState", "");
-                params.append("hLicNbr", "");
-                params.append("hAction", "");
-                params.append("hCurrPage", "");
-                params.append("hTotalPages", "");
-                params.append("hTotalRecords", "");
-                params.append("hPageAction", "");
-                params.append("hDDChange", "");
-                params.append("hBoardType", "");
-                params.append("hLicTyp", "");
-                params.append("hSearchHistoric", "");
-                params.append("hRecsPerPage", "");
-                params.append("LicNbr", clean); // The actual input
-                params.append("Board", "");
-                params.append("LicenseType", "");
-                params.append("SpecQual", "");
-                params.append("RecsPerPage", "50");
-                params.append("Search1", "Search");
-
-                const res2 = await fetch(postUrl, {
-                    method: "POST",
-                    headers: {
-                        "User-Agent": userAgent,
-                        "Content-Type": "application/x-www-form-urlencoded",
-                        "Referer": searchPageUrl,
-                        "Cookie": cookies // Pass the clean cookie
-                    },
-                    body: params.toString()
-                });
-
-                if (!res2.ok) throw new Error(`DBPR POST returned ${res2.status}`);
-
-                const html = await res2.text();
-
-                // Check for "No records found" (Standard DBPR message)
-                if (html.includes("No records found") || html.includes("Invalid License Number")) {
-                    return json({ valid: false, message: "No records found on DBPR." });
-                }
-
-                // Robust Parsing using Index positioning
-                // 1. Find the LicenseDetail link which indicates a result row
-                const linkIndex = html.indexOf("LicenseDetail.asp");
-                if (linkIndex === -1) {
-                    return json({ valid: false, message: "License found but could not verify result row structure." });
-                }
-
-                // 2. Find the start of the row (<tr) preceding the link
-                // We scan backwards or use regex matchAll to find the closest TR
-                const trMatches = [...html.matchAll(/<tr/gi)];
-                let rowStart = -1;
-                for (const m of trMatches) {
-                    if (m.index < linkIndex) {
-                        rowStart = m.index;
-                    } else {
-                        break;
-                    }
-                }
-
-                if (rowStart === -1) {
-                    return json({ valid: false, message: "Could not locate start of result row." });
-                }
-
-                // 3. Extract a generous chunk starting from the row
-                // We don't rely on </tr> because DBPR HTML might be malformed (missing </tr>)
-                const contentChunk = html.substring(rowStart, rowStart + 2000);
-
-                const colRegex = /<td[^>]*>([\s\S]*?)<\/td>/gi;
-                const cols = [...contentChunk.matchAll(colRegex)].map(m => m[1]);
-
-                const cleanText = (str) => {
-                    if (!str) return "";
-                    let txt = str.replace(/<br\s*\/?>/gi, " | ")
-                        .replace(/<[^>]+>/g, "") // Strip tags
-                        .replace(/&nbsp;/g, " ")
-                        .replace(/\s+/g, " ")
-                        .trim();
-                    return txt;
-                };
-
-                if (cols.length >= 5) {
-                    return json({
-                        valid: true,
-                        license: clean,
-                        provider: "DBPR (Live Scraped)",
-                        details: {
-                            name: cleanText(cols[1]),
-                            type: cleanText(cols[0]),
-                            status_expires: cleanText(cols[4]),
-                            number_rank: cleanText(cols[3])
-                        }
+                    const res1 = await fetch(searchPageUrl, {
+                        headers: { "User-Agent": userAgent }
                     });
+
+                    // Extract Cookies (Set-Cookie header)
+                    // We must filter out attributes like Path, HttpOnly, etc.
+                    const cookieHeader = res1.headers.get("set-cookie");
+                    let cookies = "";
+                    if (cookieHeader) {
+                        // Take only the first part before any semicolon for each cookie if multiple,
+                        // but fetch typically returns them as one string or we just need the first token.
+                        // Simple approach: split by ';' and take the first item.
+                        cookies = cookieHeader.split(';')[0];
+                    }
+
+                    // Step 2: POST the search
+                    // Action URL found in research: mode=2
+                    const postUrl = "https://www.myfloridalicense.com/wl11.asp?mode=2&search=LicNbr&SID=&brd=&typ=";
+
+                    // Construct form data
+                    const params = new URLSearchParams();
+                    params.append("hSID", "");
+                    params.append("hSearchType", "LicNbr");
+                    params.append("hLastName", "");
+                    params.append("hFirstName", "");
+                    params.append("hMiddleName", "");
+                    params.append("hOrgName", "");
+                    params.append("hSearchOpt", "");
+                    params.append("hSearchOpt2", "");
+                    params.append("hSearchAltName", "");
+                    params.append("hSearchPartName", "");
+                    params.append("hSearchFuzzy", "");
+                    params.append("hDivision", "ALL");
+                    params.append("hBoard", "");
+                    params.append("hLicenseType", "");
+                    params.append("hSpecQual", "");
+                    params.append("hAddrType", "");
+                    params.append("hCity", "");
+                    params.append("hCounty", "");
+                    params.append("hState", "");
+                    params.append("hLicNbr", "");
+                    params.append("hAction", "");
+                    params.append("hCurrPage", "");
+                    params.append("hTotalPages", "");
+                    params.append("hTotalRecords", "");
+                    params.append("hPageAction", "");
+                    params.append("hDDChange", "");
+                    params.append("hBoardType", "");
+                    params.append("hLicTyp", "");
+                    params.append("hSearchHistoric", "");
+                    params.append("hRecsPerPage", "");
+                    params.append("LicNbr", clean); // The actual input
+                    params.append("Board", "");
+                    params.append("LicenseType", "");
+                    params.append("SpecQual", "");
+                    params.append("RecsPerPage", "50");
+                    params.append("Search1", "Search");
+
+                    const res2 = await fetch(postUrl, {
+                        method: "POST",
+                        headers: {
+                            "User-Agent": userAgent,
+                            "Content-Type": "application/x-www-form-urlencoded",
+                            "Referer": searchPageUrl,
+                            "Cookie": cookies // Pass the clean cookie
+                        },
+                        body: params.toString()
+                    });
+
+                    if (!res2.ok) throw new Error(`DBPR POST returned ${res2.status}`);
+
+                    const html = await res2.text();
+
+                    // Check for "No records found" (Standard DBPR message)
+                    if (html.includes("No records found") || html.includes("Invalid License Number")) {
+                        return json({ valid: false, message: "No records found on DBPR." });
+                    }
+
+                    // Robust Parsing using Index positioning
+                    // 1. Find the LicenseDetail link which indicates a result row
+                    const linkIndex = html.indexOf("LicenseDetail.asp");
+                    if (linkIndex === -1) {
+                        return json({ valid: false, message: "License found but could not verify result row structure." });
+                    }
+
+                    // 2. Find the start of the row (<tr) preceding the link
+                    // We scan backwards or use regex matchAll to find the closest TR
+                    const trMatches = [...html.matchAll(/<tr/gi)];
+                    let rowStart = -1;
+                    for (const m of trMatches) {
+                        if (m.index < linkIndex) {
+                            rowStart = m.index;
+                        } else {
+                            break;
+                        }
+                    }
+
+                    if (rowStart === -1) {
+                        return json({ valid: false, message: "Could not locate start of result row." });
+                    }
+
+                    // 3. Extract a generous chunk starting from the row
+                    // We don't rely on </tr> because DBPR HTML might be malformed (missing </tr>)
+                    const contentChunk = html.substring(rowStart, rowStart + 2000);
+
+                    const colRegex = /<td[^>]*>([\s\S]*?)<\/td>/gi;
+                    const cols = [...contentChunk.matchAll(colRegex)].map(m => m[1]);
+
+                    const cleanText = (str) => {
+                        if (!str) return "";
+                        let txt = str.replace(/<br\s*\/?>/gi, " | ")
+                            .replace(/<[^>]+>/g, "") // Strip tags
+                            .replace(/&nbsp;/g, " ")
+                            .replace(/\s+/g, " ")
+                            .trim();
+                        return txt;
+                    };
+
+                    if (cols.length >= 5) {
+                        return json({
+                            valid: true,
+                            license: clean,
+                            provider: "DBPR (Live Scraped)",
+                            details: {
+                                name: cleanText(cols[1]),
+                                type: cleanText(cols[0]),
+                                status_expires: cleanText(cols[4]),
+                                number_rank: cleanText(cols[3])
+                            }
+                        });
+                    }
+
+                    return json({ valid: false, message: "Could not parse columns from DBPR result." });
+
+                } catch (e) {
+                    console.error("DBPR Scrape Error:", e);
+                    return json({ valid: false, error: e.message }, 500);
+                }
+            }
+
+            // ===== USERS (EDIT/DELETE) =====
+            if (pathname.startsWith("/api/users/") && pathname.split("/").length === 4) {
+                const id = pathname.split("/").pop();
+
+                if (request.method === "PUT") {
+                    return await updateUser(request, env, id);
                 }
 
-                return json({ valid: false, message: "Could not parse columns from DBPR result." });
-
-            } catch (e) {
-                console.error("DBPR Scrape Error:", e);
-                return json({ valid: false, error: e.message }, 500);
-            }
-        }
-
-        // ===== USERS (EDIT/DELETE) =====
-        if (pathname.startsWith("/api/users/") && pathname.split("/").length === 4) {
-            const id = pathname.split("/").pop();
-
-            if (request.method === "PUT") {
-                return await updateUser(request, env, id);
+                if (request.method === "DELETE") {
+                    return await deleteUser(request, env, id);
+                }
             }
 
-            if (request.method === "DELETE") {
-                return await deleteUser(request, env, id);
-            }
-        }
-
-        // ===== OFFICE MLS CONTACTS =====
-        if (pathname === "/api/offices" && request.method === "GET") {
-            return await listOfficeMlsContacts(env, searchParams);
-        }
-
-        if (pathname === "/api/offices/sync" && request.method === "POST") {
-            return await syncOfficeMlsContacts(request, env);
-        }
-
-        if (pathname.startsWith("/api/offices/")) {
-            const id = pathname.split("/").pop();
-
-            if (request.method === "GET") {
-                const { results } = await env.WRAP_DB
-                    .prepare(`SELECT * FROM office_mls_contacts WHERE id = ? OR contact_id = ?`)
-                    .bind(id, id)
-                    .all();
-                if (!results.length) return json({ error: "Office not found" }, 404);
-                return json(results[0]);
+            // ===== OFFICE MLS CONTACTS =====
+            if (pathname === "/api/offices" && request.method === "GET") {
+                return await listOfficeMlsContacts(env, searchParams);
             }
 
-            if (request.method === "DELETE") {
-                await env.WRAP_DB
-                    .prepare(`DELETE FROM office_mls_contacts WHERE id = ? OR contact_id = ?`)
-                    .bind(id, id)
-                    .run();
-                return json({ success: true });
+            if (pathname === "/api/offices/sync" && request.method === "POST") {
+                return await syncOfficeMlsContacts(request, env);
             }
-        }
 
-        // Manual trigger for Office MLS sync (same as cron job)
-        if (pathname === "/api/offices/run-sync" && request.method === "POST") {
-            try {
-                const result = await syncOfficeMlsFromGrowthZone(env);
-                return json({ success: true, ...result });
-            } catch (err) {
-                return json({ error: err.message }, 500);
+            if (pathname.startsWith("/api/offices/")) {
+                const id = pathname.split("/").pop();
+
+                if (request.method === "GET") {
+                    const { results } = await env.WRAP_DB
+                        .prepare(`SELECT * FROM office_mls_contacts WHERE id = ? OR contact_id = ?`)
+                        .bind(id, id)
+                        .all();
+                    if (!results.length) return json({ error: "Office not found" }, 404);
+                    return json(results[0]);
+                }
+
+                if (request.method === "DELETE") {
+                    await env.WRAP_DB
+                        .prepare(`DELETE FROM office_mls_contacts WHERE id = ? OR contact_id = ?`)
+                        .bind(id, id)
+                        .run();
+                    return json({ success: true });
+                }
             }
-        }
 
-        return json({ error: "Not found" }, 404);
-    } catch(err) {
-        console.error("Wrapsheet worker error (wrapsheet-v4):", err);
-        return json({ error: err.message || "Server error" }, 500);
-    }
-},
+            // Manual trigger for Office MLS sync (same as cron job)
+            if (pathname === "/api/offices/run-sync" && request.method === "POST") {
+                try {
+                    const result = await syncOfficeMlsFromGrowthZone(env);
+                    return json({ success: true, ...result });
+                } catch (err) {
+                    return json({ error: err.message }, 500);
+                }
+            }
+
+            return json({ error: "Not found" }, 404);
+        } catch (err) {
+            console.error("Wrapsheet worker error (wrapsheet-v4):", err);
+            return json({ error: err.message || "Server error" }, 500);
+        }
+    },
 
     // Daily cron job for Office MLS sync
     async scheduled(event, env, ctx) {
-    console.log("Cron trigger fired:", event.cron);
-    try {
-        await syncOfficeMlsFromGrowthZone(env);
-        console.log("Office MLS sync completed successfully");
-    } catch (err) {
-        console.error("Office MLS sync failed:", err);
-    }
-},
+        console.log("Cron trigger fired:", event.cron);
+        try {
+            await syncOfficeMlsFromGrowthZone(env);
+            console.log("Office MLS sync completed successfully");
+        } catch (err) {
+            console.error("Office MLS sync failed:", err);
+        }
+    },
 };
 
 /* ---------- BOARD IDEAS & VOTING LOGIC ---------- */
@@ -3449,133 +3313,3 @@ async function syncOfficeMlsFromGrowthZone(env) {
     return { inserted, updated, addressCount, phoneCount };
 }
 
-
-/* ---------- WEEKLY TASKS ---------- */
-
-function getWeekKey(date = new Date()) {
-    const d = new Date(date);
-    d.setHours(0, 0, 0, 0);
-    const thursday = new Date(d.valueOf());
-    thursday.setDate(d.getDate() - ((d.getDay() + 6) % 7) + 3);
-    const firstThursday = new Date(thursday.getFullYear(), 0, 4);
-    const weekNum = 1 + Math.round(
-        ((thursday.valueOf() - firstThursday.valueOf()) / 86400000 - 3 +
-            ((firstThursday.getDay() + 6) % 7)) / 7
-    );
-    return `${thursday.getFullYear()}-W${String(weekNum).padStart(2, "0")}`;
-}
-
-async function listWeeklyTasks(env, userId, weekKey) {
-    const week = weekKey || getWeekKey();
-    let query = `
-        SELECT t.*, 
-               u1.name AS assigned_to_name,
-               u2.name AS assigned_by_name
-        FROM weekly_tasks t
-        JOIN users u1 ON t.assigned_to_id = u1.id
-        LEFT JOIN users u2 ON t.assigned_by_id = u2.id
-        WHERE t.week_key = ?
-    `;
-    const params = [week];
-    if (userId) {
-        query += ` AND t.assigned_to_id = ?`;
-        params.push(userId);
-    }
-    query += ` ORDER BY t.priority DESC, t.created_at`;
-    const { results } = await env.WRAP_DB.prepare(query).bind(...params).all();
-    return json({ week: week, tasks: results });
-}
-
-async function createWeeklyTask(request, env) {
-    const body = await getBody(request);
-    const { title, notes = "", week_key, assigned_to_id, assigned_by_id = null, priority = 0 } = body;
-    const now = new Date().toISOString();
-    const info = await env.WRAP_DB.prepare(`
-            INSERT INTO weekly_tasks 
-                (title, notes, week_key, assigned_to_id, assigned_by_id, status, priority, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, 'pending', ?, ?, ?)
-        `).bind(title, notes, week_key, assigned_to_id, assigned_by_id, priority, now, now).run();
-    const insertedId = info.meta?.last_row_id;
-    const { results } = await env.WRAP_DB.prepare(`SELECT * FROM weekly_tasks WHERE id = ?`).bind(insertedId).all();
-    return json(results[0], 201);
-}
-
-async function updateWeeklyTask(request, env, taskId) {
-    const body = await getBody(request);
-    const existing = await env.WRAP_DB.prepare(`SELECT * FROM weekly_tasks WHERE id = ?`).bind(taskId).first();
-    if (!existing) return json({ error: "Not found" }, 404);
-    const now = new Date().toISOString();
-    const title = body.title ?? existing.title;
-    const notes = body.notes ?? existing.notes;
-    const status = body.status ?? existing.status;
-    const priority = body.priority ?? existing.priority;
-    let completed_at = existing.completed_at;
-    if (existing.status !== "done" && status === "done") completed_at = now;
-    else if (existing.status === "done" && status !== "done") completed_at = null;
-    await env.WRAP_DB.prepare(`
-        UPDATE weekly_tasks SET title=?, notes=?, status=?, priority=?, completed_at=?, updated_at=? WHERE id=?
-    `).bind(title, notes, status, priority, completed_at, now, taskId).run();
-    const { results } = await env.WRAP_DB.prepare(`SELECT * FROM weekly_tasks WHERE id = ?`).bind(taskId).all();
-    return json(results[0]);
-}
-
-async function deleteWeeklyTask(env, taskId) {
-    await env.WRAP_DB.prepare(`DELETE FROM weekly_tasks WHERE id = ?`).bind(taskId).run();
-    return new Response(null, { status: 204, headers: CORS_HEADERS });
-}
-
-/* ---------- PILLAR SUGGESTIONS ---------- */
-async function listPillarSuggestions(env, params) {
-    const pillar = params.get("pillar") || "";
-    let query = `
-      SELECT ps.*, u.name as user_name, u.avatar_url,
-      (SELECT COUNT(*) FROM task_votes v WHERE v.task_id = ps.id) as vote_count,
-      (SELECT GROUP_CONCAT(v2.user_id) FROM task_votes v2 WHERE v2.task_id = ps.id) as voter_ids
-      FROM pillar_suggestions ps
-      LEFT JOIN users u ON ps.user_id = u.id
-      WHERE ps.status = 'open'
-    `;
-    const args = [];
-    if (pillar) { query += " AND ps.pillar = ?"; args.push(pillar); }
-    query += " ORDER BY vote_count DESC, ps.created_at DESC";
-    const { results } = await env.WRAP_DB.prepare(query).bind(...args).all();
-    const enhanced = results.map(r => ({ ...r, voter_ids: r.voter_ids ? String(r.voter_ids).split(',').map(Number) : [] }));
-    return json(enhanced);
-}
-
-async function createPillarSuggestion(request, env) {
-    const body = await getBody(request);
-    const now = new Date().toISOString();
-    const res = await env.WRAP_DB.prepare(`INSERT INTO pillar_suggestions (user_id, pillar, suggestion, status, created_at, updated_at) VALUES (?, ?, ?, 'open', ?, ?)`)
-        .bind(body.user_id, body.pillar, body.suggestion, now, now).run();
-    return json({ id: res.meta.last_row_id }, 201);
-}
-
-async function updatePillarSuggestion(request, env, id) {
-    const body = await getBody(request);
-    await env.WRAP_DB.prepare("UPDATE pillar_suggestions SET status=?, updated_at=? WHERE id=?").bind(body.status, new Date().toISOString(), id).run();
-    return json({ success: true });
-}
-
-async function deletePillarSuggestion(env, id) {
-    await env.WRAP_DB.prepare("DELETE FROM task_votes WHERE task_id=?").bind(id).run();
-    await env.WRAP_DB.prepare("DELETE FROM pillar_suggestions WHERE id=?").bind(id).run();
-    return json({ success: true });
-}
-
-async function toggleTaskVote(request, env, taskId) {
-    const body = await getBody(request);
-    const userId = body.userId;
-    const now = new Date();
-    const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-    const vote = await env.WRAP_DB.prepare("SELECT id FROM task_votes WHERE task_id=? AND user_id=?").bind(taskId, userId).first();
-    if (vote) {
-        await env.WRAP_DB.prepare("DELETE FROM task_votes WHERE id=?").bind(vote.id).run();
-    } else {
-        const count = await env.WRAP_DB.prepare("SELECT COUNT(*) as c FROM task_votes WHERE user_id=? AND vote_month=?").bind(userId, monthKey).first();
-        if (count.c >= 5) return json({ error: "Monthly vote limit reached (5)" }, 400);
-        await env.WRAP_DB.prepare("INSERT INTO task_votes (task_id, user_id, vote_month) VALUES (?, ?, ?)").bind(taskId, userId, monthKey).run();
-    }
-    await env.WRAP_DB.prepare("UPDATE pillar_suggestions SET votes = (SELECT COUNT(*) FROM task_votes WHERE task_id = ?) WHERE id = ?").bind(taskId, taskId).run();
-    return json({ success: true });
-}
