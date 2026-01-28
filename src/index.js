@@ -530,6 +530,7 @@ async function createDailyTask(request, env) {
         notes,
         task_date,
         task_time, // optional "HH:MM" format for scheduled time reminders
+        status, // optional status for new tasks (default: pending)
         created_by_id,
         assigned_to_id,
         assigned_by_id,
@@ -594,6 +595,10 @@ async function createDailyTask(request, env) {
 
     const now = new Date().toISOString();
 
+    // Validate and normalize status
+    const validStatuses = ['pending', 'in_progress', 'done', 'could_not_complete'];
+    const normalizedStatus = validStatuses.includes(status) ? status : 'pending';
+
     const values = [
         title,          // 1
         notes,          // 2
@@ -603,8 +608,9 @@ async function createDailyTask(request, env) {
         assigned_to_id, // 6
         assigned_by_id, // 7
         now,            // 8 assigned_at
-        now,            // 9 created_at
-        now,            // 10 updated_at
+        normalizedStatus, // 9 status
+        now,            // 10 created_at
+        now,            // 11 updated_at
     ];
 
     // HARD GUARD: if anything is still undefined, we bail before D1
@@ -622,7 +628,7 @@ async function createDailyTask(request, env) {
        created_by_id, assigned_to_id, assigned_by_id,
        assigned_at, status, completion_notified,
        created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', 0, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)
   `);
 
     const info = await stmt.bind(...values).run();
