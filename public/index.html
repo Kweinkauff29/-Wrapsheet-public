@@ -7297,78 +7297,7 @@
 
       applySavedSectionOrder();
     }
-    const container = document.getElementById("sections-container");
-    if (!container) return;
 
-    const sections = container.querySelectorAll(".draggable-section");
-
-    sections.forEach(section => {
-      // Drag start
-      // Drag start
-      // Drag start
-      section.addEventListener("dragstart", (e) => {
-        // If dragging from an interactive element, blocking section drag
-        if (e.target.closest('.task-pill') || e.target.closest('input') || e.target.closest('button') || e.target.closest('.weekly-task-item') || e.target.closest('.goal-card')) {
-          return;
-        }
-        // Note: We removed the strict handle check so user can drag by header/body if empty.
-
-        draggedSection = section;
-        section.classList.add("dragging");
-        e.dataTransfer.effectAllowed = "move";
-        e.dataTransfer.setData("text/plain", section.id);
-      });
-
-      // Drag end
-      section.addEventListener("dragend", () => {
-        draggedSection = null;
-        section.classList.remove("dragging");
-        container.querySelectorAll(".draggable-section").forEach(s => {
-          s.classList.remove("drop-target");
-        });
-      });
-
-      // Drag over
-      section.addEventListener("dragover", (e) => {
-        e.preventDefault();
-        if (draggedSection && draggedSection !== section) {
-          section.classList.add("drop-target");
-        }
-      });
-
-      // Drag leave
-      section.addEventListener("dragleave", () => {
-        section.classList.remove("drop-target");
-      });
-
-      // Drop
-      section.addEventListener("drop", (e) => {
-        e.preventDefault();
-        section.classList.remove("drop-target");
-
-        if (draggedSection && draggedSection !== section) {
-          // Determine insert position
-          const bounding = section.getBoundingClientRect();
-          const offset = e.clientY - bounding.top;
-
-          if (offset > bounding.height / 2) {
-            // Insert after
-            section.parentNode.insertBefore(draggedSection, section.nextSibling);
-          } else {
-            // Insert before
-            section.parentNode.insertBefore(draggedSection, section);
-          }
-
-          // Save the new order
-          saveSectionOrder();
-          showToast("Layout saved!");
-        }
-      });
-    });
-
-    // Apply saved order on load
-    applySavedSectionOrder();
-    }
 
     function saveSectionOrder() {
       const container = document.getElementById("sections-container");
