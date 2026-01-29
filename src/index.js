@@ -1910,11 +1910,27 @@ async function getUserPreferences(env, userId) {
             theme: "light",
             calendar_view: "month",
             section_order: null,
-            enable_weekly_tasks: 0
+            enable_weekly_tasks: 0,
+            customCategoryNames: {}
         });
     }
 
-    return json(results[0]);
+    const prefs = results[0];
+    // Parse JSON fields
+    if (prefs.section_order && typeof prefs.section_order === 'string') {
+        try { prefs.section_order = JSON.parse(prefs.section_order); } catch (e) { }
+    }
+    if (prefs.custom_category_names) {
+        try {
+            prefs.customCategoryNames = JSON.parse(prefs.custom_category_names);
+        } catch (e) {
+            prefs.customCategoryNames = {};
+        }
+    } else {
+        prefs.customCategoryNames = {};
+    }
+
+    return json(prefs);
 }
 
 async function saveUserPreferences(request, env, userId) {
@@ -1931,8 +1947,8 @@ async function saveUserPreferences(request, env, userId) {
         // Insert new
         await env.WRAP_DB
             .prepare(`
-                INSERT INTO user_preferences (user_id, theme, calendar_view, section_order, enable_weekly_tasks, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?)
+                INSERT INTO user_preferences (user_id, theme, calendar_view, section_order, enable_weekly_tasks, custom_category_names, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
             `)
             .bind(
                 userId,
@@ -1940,6 +1956,7 @@ async function saveUserPreferences(request, env, userId) {
                 body.calendar_view || "month",
                 body.section_order ? JSON.stringify(body.section_order) : null,
                 body.enable_weekly_tasks || 0,
+                body.customCategoryNames ? JSON.stringify(body.customCategoryNames) : null,
                 now
             )
             .run();
@@ -1948,7 +1965,7 @@ async function saveUserPreferences(request, env, userId) {
         await env.WRAP_DB
             .prepare(`
                 UPDATE user_preferences 
-                SET theme = ?, calendar_view = ?, section_order = ?, enable_weekly_tasks = ?, updated_at = ?
+                SET theme = ?, calendar_view = ?, section_order = ?, enable_weekly_tasks = ?, custom_category_names = ?, updated_at = ?
                 WHERE user_id = ?
             `)
             .bind(
@@ -1956,6 +1973,7 @@ async function saveUserPreferences(request, env, userId) {
                 body.calendar_view !== undefined ? body.calendar_view : existing.results[0].calendar_view,
                 body.section_order ? JSON.stringify(body.section_order) : existing.results[0].section_order,
                 body.enable_weekly_tasks !== undefined ? body.enable_weekly_tasks : existing.results[0].enable_weekly_tasks,
+                body.customCategoryNames ? JSON.stringify(body.customCategoryNames) : existing.results[0].custom_category_names,
                 now,
                 userId
             )
