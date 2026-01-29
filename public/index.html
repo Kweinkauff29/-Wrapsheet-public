@@ -8790,12 +8790,30 @@
       }
     }
 
-    // Hook into updateCoinUI
-    const originalUpdateCoinUI = updateCoinUI;
-    updateCoinUI = function () {
-      if (originalUpdateCoinUI) originalUpdateCoinUI();
+    // Unified Coin UI Updater
+    function updateCoinUI() {
+      // 1. Header Coin Counter
+      const amountEl = document.getElementById("coin-amount");
+      if (amountEl) {
+        amountEl.textContent = state.coinBalance || 0;
+        // Add pulse animation on change?
+        const counter = document.getElementById("coin-counter");
+        if (counter) {
+          counter.classList.remove("pulse");
+          void counter.offsetWidth; // trigger reflow
+          counter.classList.add("pulse");
+        }
+      }
+
+      const dayEl = document.getElementById("coin-day-progress");
+      if (dayEl) dayEl.textContent = (state.coinDayEarned || 0) + "/50 today";
+
+      const weekEl = document.getElementById("coin-week-progress");
+      if (weekEl) weekEl.textContent = (state.coinWeekEarned || 0) + "/250 week";
+
+      // 2. Bird Energy Meter
       updateBirdEnergy();
-    };
+    }
 
     // Initialize New Systems
     document.addEventListener("DOMContentLoaded", () => {
