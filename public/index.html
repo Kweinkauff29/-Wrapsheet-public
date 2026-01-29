@@ -3187,6 +3187,18 @@
           </div>
         </div>
 
+        <!-- Coin Counter (for Kevin) -->
+        <div class="coin-counter-wrap" id="coin-counter-wrap">
+          <div class="coin-counter" id="coin-counter" title="Your coin balance">
+            <span class="coin-icon">🪙</span>
+            <span class="coin-amount" id="coin-amount">0</span>
+          </div>
+          <div class="coin-caps" id="coin-caps">
+            <span id="coin-day-progress">0/50 today</span>
+            <span id="coin-week-progress">0/250 week</span>
+          </div>
+        </div>
+
         <div class="user-pill">
           <span id="current-user-label">Not signed in</span>
           <button id="switch-user-btn">Switch</button>
@@ -3247,6 +3259,54 @@
           <div class="calendar-metrics">
             <canvas id="status-pie" width="150" height="150"></canvas>
           </div>
+
+        </section>
+
+        <!-- Goals Section -->
+        <section class="panel draggable-section" id="section-goals" draggable="true">
+          <div class="panel-header">
+            <span class="section-drag-handle" title="Drag to reorder">⋮⋮</span>
+            <div class="panel-title">Goals & Focus</div>
+            <div class="goals-tabs">
+              <button class="goals-tab active" data-tab="monthly">Monthly Strategies</button>
+              <button class="goals-tab" data-tab="annual">Annual Goals</button>
+            </div>
+          </div>
+
+          <!-- Monthly Goals -->
+          <div id="monthly-goals-panel">
+            <div class="goals-controls">
+              <label>
+                Month
+                <input type="month" id="monthly-month-input" />
+              </label>
+              <label>
+                Owner
+                <select id="monthly-owner-filter">
+                  <option value="all">Everyone</option>
+                </select>
+              </label>
+            </div>
+            <div class="goals-grid" id="monthly-goals-grid"></div>
+          </div>
+
+          <!-- Annual Goals -->
+          <div id="annual-goals-panel" style="display:none;">
+            <div class="goals-controls">
+              <label>
+                Year
+                <select id="annual-year-input"></select>
+              </label>
+              <label>
+                Owner
+                <select id="annual-owner-filter">
+                  <option value="all">Everyone</option>
+                </select>
+              </label>
+            </div>
+            <div class="goals-grid" id="annual-goals-grid"></div>
+          </div>
+
         </section>
 
         <!-- Task Backlog Section -->
@@ -3661,35 +3721,70 @@
 
     // Get custom category name from user preferences (or return original)
     function getCustomCategoryName(goalType, originalCategory) {
-      if (!state.userPrefs) return originalCategory;
-      const customNames = state.userPrefs.customCategoryNames || {};
+      if (!state.userDbPrefs) return originalCategory; // FIX: check userDbPrefs
+      const customNames = state.userDbPrefs.customCategoryNames || {};
       const key = `${goalType}-${originalCategory}`;
       return customNames[key] || originalCategory;
     }
 
-    // Save custom category name to user preferences (localStorage)
-    function saveCustomCategoryName(goalType, originalCategory, customName) {
-      if (!state.activeUser) return;
+    // Save custom category name to user preferences (DB + localStorage)
+    async function saveCustomCategoryName(goalType, originalCategory, customName) {
+      if (!state.currentUser) return; // FIX: Use currentUser
 
-      const prefsKey = `user-prefs-${state.activeUser.id}`;
-      const prefs = state.userPrefs || {};
-      prefs.customCategoryNames = prefs.customCategoryNames || {};
+      const prefsKey = `user-prefs-${state.currentUser.id}`;
+      // Ensure local state is init
+      state.userDbPrefs = state.userDbPrefs || {};
+      state.userDbPrefs.customCategoryNames = state.userDbPrefs.customCategoryNames || {};
 
       const key = `${goalType}-${originalCategory}`;
 
       // If custom name is same as original or empty, remove the override
       if (!customName || customName === originalCategory) {
-        delete prefs.customCategoryNames[key];
+        delete state.userDbPrefs.customCategoryNames[key];
       } else {
-        prefs.customCategoryNames[key] = customName;
+        state.userDbPrefs.customCategoryNames[key] = customName;
       }
 
-      state.userPrefs = prefs;
+      // 1. Save to DB
+      await saveUserDbPreference("customCategoryNames", state.userDbPrefs.customCategoryNames);
 
+      // 2. Save to LocalStorage as backup
       try {
-        localStorage.setItem(prefsKey, JSON.stringify(prefs));
+        localStorage.setItem(prefsKey, JSON.stringify(state.userDbPrefs));
       } catch (err) {
         console.error("Error saving category name:", err);
+      }
+    }
+
+    // Add Coins logic
+    async function addCoins(amount) {
+      if (!state.currentUser) return;
+
+      const newBalance = (state.coinBalance || 0) + amount;
+      const today = new Date().toISOString().split('T')[0];
+      const weekKey = getWeekKey(new Date());
+
+      // Update state immediately for UI 
+      state.coinBalance = newBalance;
+      state.coinDayEarned = (state.coinDayEarned || 0) + amount;
+      state.coinWeekEarned = (state.coinWeekEarned || 0) + amount;
+
+      updateCoinUI();
+      checkCoinCaps();
+
+      // Persist to backend
+      try {
+        await apiSend(`/users/${state.currentUser.id}/coins`, "PUT", {
+          coin_balance: state.coinBalance,
+          coin_day_earned: state.coinDayEarned,
+          coin_day_key: today,
+          coin_week_earned: state.coinWeekEarned,
+          coin_week_key: weekKey
+        });
+        showToast(`+${amount} Coins!`, false);
+        checkPromotions();
+      } catch (err) {
+        console.error("Error saving coins:", err);
       }
     }
 
@@ -4051,6 +4146,7 @@
         if (newStatus === "done") {
           showToast("Task marked complete");
           checkDailyCompletion(task.task_date);
+          addCoins(10);
         } else if (newStatus === "could_not_complete") {
           showToast("Task marked as could not complete");
         } else {
@@ -6021,6 +6117,9 @@
         closeTaskModal();
         await loadDailyTasks();
         showToast(shouldRepeat ? "Task series added" : "Task saved");
+        if (status === "done") {
+          addCoins(10);
+        }
       } catch (err) {
         console.error(err);
         showToast("Error saving task", true);
