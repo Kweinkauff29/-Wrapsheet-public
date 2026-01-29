@@ -5,7 +5,273 @@
   <meta charset="UTF-8" />
   <title>WrapSheet</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Confetti/Fireworks Library -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
   <style>
+    /* ===== COIN REWARD SYSTEM ===== */
+    .coin-counter-wrap {
+      display: none;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 2px;
+    }
+
+    .coin-counter-wrap.visible {
+      display: flex;
+    }
+
+    .coin-counter {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+      border: 2px solid #d97706;
+      box-shadow: 0 2px 8px rgba(245, 158, 11, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+      font-size: 14px;
+      font-weight: 700;
+      color: #78350f;
+      cursor: default;
+      user-select: none;
+      transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    .coin-caps {
+      display: flex;
+      gap: 8px;
+      font-size: 10px;
+      color: var(--ink-soft);
+      opacity: 0.8;
+    }
+
+    .coin-caps span {
+      background: rgba(0, 0, 0, 0.1);
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+
+    body[data-theme="dark"] .coin-caps span {
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .coin-counter:hover {
+      transform: scale(1.05);
+    }
+
+    .coin-counter.pulse {
+      animation: coinPulse 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    .coin-icon {
+      font-size: 18px;
+      filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.2));
+    }
+
+    .coin-amount {
+      min-width: 24px;
+      text-align: center;
+      text-shadow: 0 1px 0 rgba(255, 255, 255, 0.4);
+    }
+
+    @keyframes coinPulse {
+      0% {
+        transform: scale(1);
+      }
+
+      50% {
+        transform: scale(1.15);
+      }
+
+      100% {
+        transform: scale(1);
+      }
+    }
+
+    /* Shake animation for coin deduction */
+    .coin-counter.shake {
+      animation: coinShake 0.4s ease-in-out;
+    }
+
+    @keyframes coinShake {
+
+      0%,
+      100% {
+        transform: translateX(0);
+      }
+
+      20% {
+        transform: translateX(-5px);
+      }
+
+      40% {
+        transform: translateX(5px);
+      }
+
+      60% {
+        transform: translateX(-3px);
+      }
+
+      80% {
+        transform: translateX(3px);
+      }
+    }
+
+    /* --- BIRD SYSTEM CSS --- */
+    .bird-system-container {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      padding: 0 5px 5px;
+      gap: 15px;
+      height: 160px;
+    }
+
+    .bird-wrapper {
+      position: relative;
+      width: 110px;
+      height: 120px;
+      cursor: grab;
+      flex-shrink: 0;
+      border-radius: 50%;
+    }
+
+    .bird-wrapper:active {
+      cursor: grabbing;
+    }
+
+    /* Hearts for petting */
+    .pet-heart {
+      position: absolute;
+      font-size: 20px;
+      color: #ec4899;
+      pointer-events: none;
+      animation: floatUp 1s ease-out forwards;
+      opacity: 0;
+      z-index: 10;
+    }
+
+    @keyframes birdJump {
+
+      0%,
+      100% {
+        transform: translateY(0) scale(1) rotate(0deg);
+      }
+
+      30% {
+        transform: translateY(-8px) scale(1.05) rotate(-3deg);
+      }
+
+      50% {
+        transform: translateY(0) scale(0.98) rotate(0deg);
+      }
+
+      70% {
+        transform: translateY(-4px) scale(1.02) rotate(3deg);
+      }
+    }
+
+    @keyframes wingFlapL {
+
+      0%,
+      100% {
+        transform: rotate(0deg);
+      }
+
+      25% {
+        transform: rotate(20deg);
+      }
+
+      50% {
+        transform: rotate(-10deg);
+      }
+
+      75% {
+        transform: rotate(20deg);
+      }
+    }
+
+    @keyframes wingFlapR {
+
+      0%,
+      100% {
+        transform: rotate(0deg);
+      }
+
+      25% {
+        transform: rotate(-20deg);
+      }
+
+      50% {
+        transform: rotate(10deg);
+      }
+
+      75% {
+        transform: rotate(-20deg);
+      }
+    }
+
+    .bird-celebrating .bird-anim-wrapper {
+      animation: birdJump 0.6s ease-in-out infinite;
+      transform-origin: center bottom;
+    }
+
+    .bird-celebrating .bird-wing-l {
+      animation: wingFlapL 0.2s ease-in-out infinite;
+      transform-origin: 100% 50%;
+      transform-box: fill-box;
+    }
+
+    .bird-celebrating .bird-wing-r {
+      animation: wingFlapR 0.2s ease-in-out infinite;
+      transform-origin: 0% 50%;
+      transform-box: fill-box;
+    }
+
+    @keyframes floatUp {
+      0% {
+        transform: translateY(0) scale(0.5);
+        opacity: 1;
+      }
+
+      100% {
+        transform: translateY(-40px) scale(1.2);
+        opacity: 0;
+      }
+    }
+
+    /* Edit Bird Button */
+    .edit-bird-btn {
+      position: absolute;
+      bottom: -15px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--panel-elevated);
+      border: 1px solid var(--panel-border);
+      border-radius: 12px;
+      width: 24px;
+      height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      opacity: 0;
+      transition: opacity 0.2s, transform 0.2s;
+      box-shadow: var(--shadow-md);
+      z-index: 20;
+    }
+
+    .bird-wrapper:hover .edit-bird-btn {
+      opacity: 1;
+      bottom: -5px;
+    }
+
+    .edit-bird-btn:hover {
+      transform: translateX(-50%) scale(1.1);
+      background: var(--bg-main);
+    }
+
     :root {
       /* Light / “Day” default */
       --ink: #0f172a;

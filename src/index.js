@@ -2343,14 +2343,19 @@ export default {
             }
             // Inventory
             if (pathname.match(/^\/api\/users\/\d+\/inventory$/)) {
-                const uid = pathname.split("/")[3];
-                const { results } = await env.WRAP_DB.prepare(`
+                try {
+                    const uid = pathname.split("/")[3];
+                    const { results } = await env.WRAP_DB.prepare(`
                     SELECT ui.*, si.name, si.image_url, si.category 
                     FROM user_inventory ui
                     JOIN shop_items si ON ui.item_id = si.id
                     WHERE ui.user_id = ?
                 `).bind(uid).all();
-                return json(results);
+                    return json(results);
+                } catch (e) {
+                    console.error("Inventory error:", e);
+                    return json({ error: e.message }, 500);
+                }
             }
             // Equipped
             if (pathname.match(/^\/api\/users\/\d+\/equipped$/)) {
