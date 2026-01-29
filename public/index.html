@@ -4061,23 +4061,40 @@
       }
     }
 
+    // Helper to check if user is eligible for rewards (e.g., not a demo user)
+    function isRewardEligible() {
+      // For now, all users are eligible. Add logic here later if needed.
+      return true;
+    }
+
     // Add Coins logic
     async function addCoins(amount) {
       if (!state.currentUser) return;
+      if (!isRewardEligible()) return;
 
-      const newBalance = (state.coinBalance || 0) + amount;
+      const requested = amount;
+      const dayRemaining = COIN_DAILY_CAP - (state.coinDayEarned || 0);
+      const weekRemaining = COIN_WEEKLY_CAP - (state.coinWeekEarned || 0);
+      const actualAmount = Math.max(0, Math.min(requested, dayRemaining, weekRemaining));
+
+      if (actualAmount <= 0) {
+        // Cap reached, maybe toast?
+        // showToast("Coin cap reached for today!");
+        return;
+      }
+
+      const newBalance = (state.coinBalance || 0) + actualAmount;
       const today = new Date().toISOString().split('T')[0];
       const weekKey = getWeekKey(new Date());
 
       // Update state immediately for UI 
       state.coinBalance = newBalance;
-      state.coinDayEarned = (state.coinDayEarned || 0) + amount;
-      state.coinWeekEarned = (state.coinWeekEarned || 0) + amount;
+      state.coinDayEarned = (state.coinDayEarned || 0) + actualAmount;
+      state.coinWeekEarned = (state.coinWeekEarned || 0) + actualAmount;
 
       updateCoinUI();
-      checkCoinCaps();
 
-      // Persist to backend
+      // Persist to backend without blocking UI
       try {
         await apiSend(`/users/${state.currentUser.id}/coins`, "PUT", {
           coin_balance: state.coinBalance,
@@ -4086,7 +4103,7 @@
           coin_week_earned: state.coinWeekEarned,
           coin_week_key: weekKey
         });
-        showToast(`+${amount} Coins!`, false);
+        showToast(`+${actualAmount} Coins!`, false);
         checkPromotions();
       } catch (err) {
         console.error("Error saving coins:", err);
@@ -8788,6 +8805,33 @@
         fill.style.width = pct + "%";
         text.textContent = val + "/50";
       }
+    }
+
+    // ===== COIN REWARD SYSTEM =====
+    const COIN_DAILY_CAP = 50;
+    const COIN_WEEKLY_CAP = 250;
+
+    function isRewardEligible() {
+      // For now, all users are eligible. Add logic here later if needed.
+      return true;
+    }
+
+    function getWeekKey(date = new Date()) {
+      const d = new Date(date);
+      d.setHours(0, 0, 0, 0);
+      const thursday = new Date(d.valueOf());
+      thursday.setDate(d.getDate() - ((d.getDay() + 6) % 7) + 3);
+      const firstThursday = new Date(thursday.getFullYear(), 0, 4);
+      const weekNum = 1 + Math.round(((thursday - firstThursday) / 86400000 - 3 + (firstThursday.getDay() + 6) % 7) / 7);
+      return `${thursday.getFullYear()}-W${String(weekNum).padStart(2, "0")}`;
+    }
+
+    function checkCoinCaps() {
+      // Placeholder for potential UI cap checks or reset logic
+    }
+
+    function checkPromotions() {
+      // Placeholder for level-up checks
     }
 
     // Unified Coin UI Updater
