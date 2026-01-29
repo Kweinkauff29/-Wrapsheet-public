@@ -4068,7 +4068,7 @@
     }
 
     // Add Coins logic
-    async function addCoins(amount) {
+    async function addCoins(amount, sourceElement = null) {
       if (!state.currentUser) return;
       if (!isRewardEligible()) return;
 
@@ -4093,6 +4093,17 @@
       state.coinWeekEarned = (state.coinWeekEarned || 0) + actualAmount;
 
       updateCoinUI();
+
+      // Trigger Animation
+      const counterEl = document.getElementById("coin-counter");
+      if (counterEl) {
+        // Use provided source or fallback to center of screen
+        let fromRect = sourceElement ? sourceElement.getBoundingClientRect() : {
+          left: window.innerWidth / 2, top: window.innerHeight / 2, width: 0, height: 0
+        };
+        // Spawn visuals (max 8 coins to avoid lag)
+        spawnFlyingCoinsWithLanding(fromRect, counterEl.getBoundingClientRect(), Math.min(actualAmount, 8), 0, counterEl);
+      }
 
       // Persist to backend without blocking UI
       try {
@@ -4454,7 +4465,7 @@
         triggerFireworks('small');
       }
     }
-    async function quickUpdateTaskStatus(task, newStatus) {
+    async function quickUpdateTaskStatus(task, newStatus, sourceElement = null) {
       const oldStatus = task.status || "pending";
       if (oldStatus === newStatus) return;
 
@@ -4468,7 +4479,7 @@
         if (newStatus === "done") {
           showToast("Task marked complete");
           checkDailyCompletion(task.task_date);
-          addCoins(10);
+          addCoins(10, sourceElement);
         } else if (newStatus === "could_not_complete") {
           showToast("Task marked as could not complete");
         } else {
@@ -6117,7 +6128,7 @@
         e.stopPropagation();
         const newStatus = quickDone.checked ? "done" : "pending";
         // If in backlog, updating status keeps it in backlog unless it's marked done (maybe we move done items to today? No, stays in backlog)
-        await quickUpdateTaskStatus(task, newStatus);
+        await quickUpdateTaskStatus(task, newStatus, quickDone);
       });
 
       const quickBlocked = document.createElement("button");
@@ -6440,7 +6451,7 @@
         await loadDailyTasks();
         showToast(shouldRepeat ? "Task series added" : "Task saved");
         if (status === "done") {
-          addCoins(10);
+          addCoins(10, document.getElementById('task-save-btn'));
         }
       } catch (err) {
         console.error(err);
@@ -8476,7 +8487,90 @@
     }
 
     function checkPromotions() {
-      // Placeholder
+      // Placeholder for level-up checks
+    }
+
+    // Spawn flying coins
+    function spawnFlyingCoinsWithLanding(fromRect, toRect, count, coinsPerVisual, counterEl) {
+      if (!fromRect || !toRect) return;
+      const startX = fromRect.left + fromRect.width / 2;
+      const startY = fromRect.top + fromRect.height / 2;
+      const endX = toRect.left + toRect.width / 2;
+      const endY = toRect.top + toRect.height / 2;
+
+      for (let i = 0; i < count; i++) {
+        const spawnDelay = i * 80;
+        setTimeout(() => {
+          const coin = document.createElement("div");
+          coin.className = "flying-coin";
+          coin.textContent = "🪙";
+          coin.style.transform = "scale(0)";
+          coin.style.position = "fixed";
+          coin.style.zIndex = "2147483647";
+          coin.style.pointerEvents = "none"; // Important!
+
+          const offsetX = (Math.random() - 0.5) * 40;
+          const offsetY = (Math.random() - 0.5) * 40;
+          const coinStartX = startX + offsetX;
+          const coinStartY = startY + offsetY;
+
+          coin.style.left = coinStartX + "px";
+          coin.style.top = coinStartY + "px";
+          document.body.appendChild(coin);
+
+          const duration = 600 + Math.random() * 200;
+          const arcHeight = Math.min(150, Math.abs(endY - coinStartY) * 0.5 + 50);
+          const startTime = performance.now();
+
+          function animate(currentTime) {
+            const elapsed = currentTime - startTime;
+            const progress = Math.min(elapsed / duration, 1);
+            const eased = 1 - Math.pow(1 - progress, 3);
+            const x = coinStartX + (endX - coinStartX) * eased;
+            const arcOffset = Math.sin(progress * Math.PI) * arcHeight;
+            const y = coinStartY + (endY - coinStartY) * eased - arcOffset;
+            const scale = progress < 0.2 ? progress * 5 : progress > 0.9 ? 1 - (progress - 0.9) * 5 : 1;
+            const rotation = progress * 720;
+
+            coin.style.left = x + "px";
+            coin.style.top = y + "px";
+            coin.style.transform = `scale(${scale}) rotate(${rotation}deg)`;
+
+            if (progress < 1) {
+              requestAnimationFrame(animate);
+            } else {
+              playChaChingSound(i);
+              if (counterEl) {
+                counterEl.classList.add("pulse");
+                setTimeout(() => counterEl.classList.remove("pulse"), 150);
+              }
+              coin.remove();
+            }
+          }
+          requestAnimationFrame(animate);
+        }, spawnDelay);
+      }
+    }
+
+    // Web Audio Sound
+    function playChaChingSound(index) {
+      try {
+        if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const now = audioContext.currentTime;
+        const baseFreq = 1200 + (index * 80);
+
+        const osc = audioContext.createOscillator();
+        const gain = audioContext.createGain();
+        osc.frequency.setValueAtTime(baseFreq, now);
+        osc.frequency.exponentialRampToValueAtTime(baseFreq * 0.5, now + 0.15);
+        gain.gain.setValueAtTime(0, now);
+        gain.gain.linearRampToValueAtTime(0.1, now + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+        osc.connect(gain);
+        gain.connect(audioContext.destination);
+        osc.start(now);
+        osc.stop(now + 0.2);
+      } catch (e) { /* ignore */ }
     }
     let coinSaveTimeout;
 
@@ -8800,7 +8894,7 @@
         setTimeout(() => heart.remove(), 1000);
 
         // Add energy/coins?
-        addCoins(1);
+        addCoins(1, bird);
       });
     }
 
