@@ -8470,6 +8470,14 @@
       const weekNum = Math.ceil((days + startOfYear.getDay() + 1) / 7);
       return `${now.getFullYear()}-W${String(weekNum).padStart(2, "0")}`;
     }
+
+    function checkCoinCaps() {
+      // Placeholder
+    }
+
+    function checkPromotions() {
+      // Placeholder
+    }
     let coinSaveTimeout;
 
     // Load coin balance from API only (no local fallback)
@@ -8805,33 +8813,6 @@
         fill.style.width = pct + "%";
         text.textContent = val + "/50";
       }
-    }
-
-    // ===== COIN REWARD SYSTEM =====
-    const COIN_DAILY_CAP = 50;
-    const COIN_WEEKLY_CAP = 250;
-
-    function isRewardEligible() {
-      // For now, all users are eligible. Add logic here later if needed.
-      return true;
-    }
-
-    function getWeekKey(date = new Date()) {
-      const d = new Date(date);
-      d.setHours(0, 0, 0, 0);
-      const thursday = new Date(d.valueOf());
-      thursday.setDate(d.getDate() - ((d.getDay() + 6) % 7) + 3);
-      const firstThursday = new Date(thursday.getFullYear(), 0, 4);
-      const weekNum = 1 + Math.round(((thursday - firstThursday) / 86400000 - 3 + (firstThursday.getDay() + 6) % 7) / 7);
-      return `${thursday.getFullYear()}-W${String(weekNum).padStart(2, "0")}`;
-    }
-
-    function checkCoinCaps() {
-      // Placeholder for potential UI cap checks or reset logic
-    }
-
-    function checkPromotions() {
-      // Placeholder for level-up checks
     }
 
     // Unified Coin UI Updater
