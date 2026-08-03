@@ -4763,6 +4763,23 @@
     async function createMultipleTasks(payloads, loaderMessage) {
       if (!payloads || !payloads.length) return;
 
+      // Recurrence calculations can occasionally converge on the same adjusted
+      // business day. Never send the same logical occurrence twice.
+      const uniquePayloads = [];
+      const seenOccurrences = new Set();
+      payloads.forEach(payload => {
+        const key = [
+          String(payload.task_date || ""),
+          String(payload.title || "").trim().toLowerCase().replace(/\s+/g, " "),
+          String(payload.assigned_to_id || ""),
+          String(payload.task_time || ""),
+          String(payload.notes || "").trim()
+        ].join("|");
+        if (seenOccurrences.has(key)) return;
+        seenOccurrences.add(key);
+        uniquePayloads.push(payload);
+      });
+
       showActionLoader(
         loaderMessage || {
           main: "Creating repeated tasks…",
@@ -4774,7 +4791,7 @@
       const delayPromise = new Promise(resolve => setTimeout(resolve, delayMs));
 
       try {
-        const fetches = payloads.map(p =>
+        const fetches = uniquePayloads.map(p =>
           fetch(API_BASE + "/daily-tasks", {
             method: "POST",
             headers: {
@@ -5498,8 +5515,10 @@
         if (e.key === "Enter" && !e.shiftKey) {
           // Don't trigger on textarea (allow Enter for new lines there)
           if (e.target.tagName === "TEXTAREA") return;
+          const saveButton = document.getElementById("task-save-btn");
+          if (taskSaveInFlight || saveButton?.disabled) return;
           e.preventDefault();
-          document.getElementById("task-save-btn").click();
+          saveButton?.click();
         }
       });
 
@@ -6327,6 +6346,8 @@
     }
 
 
+    let taskSaveInFlight = false;
+
     function closeTaskModal() {
       document.getElementById("task-modal").classList.add("hidden");
     }
@@ -6389,6 +6410,16 @@
         assignee_ids: assigneeIds
       };
 
+      if (taskSaveInFlight) return;
+      const saveButton = document.getElementById("task-save-btn");
+      const originalSaveLabel = saveButton?.textContent || "Save Task";
+      taskSaveInFlight = true;
+      if (saveButton) {
+        saveButton.disabled = true;
+        saveButton.setAttribute("aria-busy", "true");
+        saveButton.textContent = "Saving…";
+      }
+
       try {
         if (id) {
           // Editing an existing single task
@@ -6431,7 +6462,7 @@
               repeatStartStr || dateStr,
               repeatEndStr
             );
-            const allDates = [dateStr, ...extraDates];
+            const allDates = [...new Set([dateStr, ...extraDates])];
 
             const payloads = allDates.map(d => ({
               ...basePayload,
@@ -6456,6 +6487,13 @@
       } catch (err) {
         console.error(err);
         showToast("Error saving task", true);
+      } finally {
+        taskSaveInFlight = false;
+        if (saveButton) {
+          saveButton.disabled = false;
+          saveButton.removeAttribute("aria-busy");
+          saveButton.textContent = originalSaveLabel;
+        }
       }
     }
 
