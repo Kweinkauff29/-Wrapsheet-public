@@ -1,0 +1,6 @@
+Traceback (most recent call last):
+  File "/home/runner/work/-Wrapsheet-public/-Wrapsheet-public/scripts/patch_duplicate_task_saves.py", line 34, in <module>
+    assert old in text, "createMultipleTasks start anchor missing"
+           ^^^^^^^^^^^
+AssertionError: createMultipleTasks start anchor missing
+exit_status=1
