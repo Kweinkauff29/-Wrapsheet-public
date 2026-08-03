@@ -22,7 +22,8 @@ jobs:
         run: |
           set +e
           mkdir -p audit
-          python scripts/patch_duplicate_task_saves.py > audit/duplicate-save-patch.log 2>&1
+          echo "rerun=2" > audit/duplicate-save-patch.log
+          python scripts/patch_duplicate_task_saves.py >> audit/duplicate-save-patch.log 2>&1
           status=$?
           echo "exit_status=$status" >> audit/duplicate-save-patch.log
           git config user.name "github-actions[bot]"
